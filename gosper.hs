@@ -62,39 +62,39 @@ matMultiplyBy k = [[k,0],[0,1]] -- i.e. k*x
  - Gosper's algorithm for arithmetic on pairs of CFs
  -}
 
-ingestY n [[a,b,c,d],[e,f,g,h]] = [[n*a+b, a, n*c+d, c], [n*e+f, e, n*g+h, g]]
-ingestX n [[a,b,c,d],[e,f,g,h]] = [[n*a+c, n*b+d, a, b], [n*e+g, n*f+h, e, f]]
-
--- matrix initializations for arithmetic
-initAdd :: Num a => [[a]]
-initAdd = [[0,1,1,0],[0,0,0,1]]
-initSub :: Num a => [[a]]
-initSub = [[0,1,-1,0],[0,0,0,1]]
-initMul :: Num a => [[a]]
-initMul = [[1,0,0,0],[0,0,0,1]]
-initDiv :: Num a => [[a]]
-initDiv = [[0,1,0,0],[0,0,1,0]]
-
 infinity :: Num a => a
-infinity = 999999999
+infinity = 999999999999999999
 noOutput :: Num a => a
-noOutput = -99999999
+noOutput = -99999999999999999
+
+-- homomorphic matrix (axy + bx +cy + d)/(exy + fx + gy + h)
+-- substitute x <- n + 1/x or y <- n + 1/y
+ingestX n [[a,b,c,d],[e,f,g,h]] | n==infinity = [[0,0,a,b],[0,0,e,f]]
+                                | otherwise   = [[n*a+c, n*b+d, a, b], [n*e+g, n*f+h, e, f]]
+ingestY n [[a,b,c,d],[e,f,g,h]] | n==infinity = [[0,a,0,c],[0,e,0,g]]
+                                | otherwise   = [[n*a+b, a, n*c+d, c], [n*e+f, e, n*g+h, g]]
 
 -- after ingesting leading terms, can assume all terms >= 1
 -- easier to  map xx, yy = x-1, y-1 and find range assuming xx,yy>0
 shift [a,b,c,d] = [a, a+b, a+c, a+b+c+d]
 shift [a,b] = [a,a+b]
 range [num, den] = range_ [shift num , shift den]
+
+-- finite CFs implicitly terminated by infinity
+-- TODO: filter with 'until infinite'
+head_ [] = infinity
+head_ xs = head xs
+tail_ [] = []
+tail_ xs = tail xs
+
 -- current state is ( (unread part of x, unread part of y, history), (current holomorphic matrix, last output) )
 -- most recent history is at head of h
--- TODO: deal with only one input null; put low==hi after null checks; do we need allZero?
 -- TODO: truncate based on equality tolerance
 gosper ((x,y,h),(curM,bn))  | low == hi         = ((x,y,[h!!0]), (produce hi curM, hi)) -- produce another term of output
                             | allZero curM      = ((x,y,h), (curM, infinity)) -- stop on all-zero state
-                            | null x && null y  = ((x,y,h), (curM, infinity)) -- stop on all-zero state
                             | length h > 100     = (([],[],"x"), (produce hi curM, hi)) -- stuck in loop, truncate
-                            | h!!0 == 'y'       = ((tail x,y,'x':h), (ingestX (head x) curM, noOutput)) -- get next x
-                            | otherwise         = ((x,tail y,'y':h), (ingestY (head y) curM, noOutput)) -- get next y
+                            | h!!0 == 'y'       = ((tail_ x,y,'x':h), (ingestX (head_ x) curM, noOutput)) -- get next x
+                            | otherwise         = ((x,tail_ y,'y':h), (ingestY (head_ y) curM, noOutput)) -- get next y
                                   where (low,hi)  = range curM
 
 -- keep all intermediate states
@@ -109,6 +109,16 @@ arithCF initialState x y = map (fromIntegral.snd.snd) (take 100 ( filter outputS
 -- for debugging: make intermediate states printable
 hist (_,_,h) = h
 viewState (h,m) = (hist h, fst m, range (fst m), snd m)
+
+-- matrix initializations for arithmetic
+initAdd :: Num a => [[a]]
+initAdd = [[0,1,1,0],[0,0,0,1]]
+initSub :: Num a => [[a]]
+initSub = [[0,1,-1,0],[0,0,0,1]]
+initMul :: Num a => [[a]]
+initMul = [[1,0,0,0],[0,0,0,1]]
+initDiv :: Num a => [[a]]
+initDiv = [[0,1,0,0],[0,0,1,0]]
 
 addCF :: (Integral a, Num b) => [a] -> [a] -> [b]
 addCF = arithCF initAdd
