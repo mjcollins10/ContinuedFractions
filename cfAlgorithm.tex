@@ -1,0 +1,300 @@
+\documentclass[11pt, oneside]{amsart}   	% use "amsart" instead of "article" for AMSLaTeX format
+\usepackage{geometry}                		% See geometry.pdf to learn the layout options. There are lots.
+\geometry{letterpaper}                   		% ... or a4paper or a5paper or ... 
+%\geometry{landscape}                		% Activate for rotated page geometry
+%\usepackage[parfill]{parskip}    		% Activate to begin paragraphs with an empty line rather than an indent
+\usepackage{graphicx}				% Use pdf, png, jpg, or eps§ with pdflatex; use eps in DVI mode
+								% TeX will automatically convert eps --> pdf in pdflatex		
+\usepackage{amssymb}
+\usepackage{algorithmic}
+
+%SetFonts
+%SetFonts
+\newcommand{\pqrs}{\left(
+\begin{smallmatrix} 
+p & q\\ 
+r & s 
+\end{smallmatrix}
+\right)}
+
+\newcommand{\homographic}[4]{\begin{pmatrix} #1 & #2\\ #3 & #4 \end{pmatrix}}
+\newcommand{\bihomographic}[8]{\begin{pmatrix}#1&#2&#3&#4\\#5&#6&#7&#8\end{pmatrix}}
+
+\newcommand{\abcd}{\left(
+\begin{smallmatrix} 
+a & b & c & d\\ 
+e & f & g & h
+\end{smallmatrix}
+\right)}
+
+\title{Arithmetic on Continued Fractions}
+\author{Michael J. Collins\\Daniel H. Wagner Associates\\mjcollins10@gmail.com}
+%\date{} % Activate to display a given date or no date
+
+\begin{document}
+\maketitle
+
+\section{Continued Fractions}
+Some sort of intro to CFs, but keep it short since that information is easily found elsewhere. Explicitly mention mediant theorem since we use that in exposition later (for taking floor of bihomographic). Notation $x=[x_0,x_1,x_2 \cdots]$ and for quadratics $x=[x_0,x_1,x_2 \cdots x_k (x_{k+1},\cdots x_{k+m})]$. For CFs that follow an iterative pattern, $x=[x_0,x_1,x_2 \cdots (f_1(k),\cdots f_m(k))]$, where the $f_i$ are integer functions and $k$ ranges from $0$ to infinity, for instance (example). A rational number $x=[x_0,x_1,x_2 \cdots x_k]$ has $x_i = \infty$ for $i>k$.
+
+\section{Arithmetic on One CF}
+Gosper [\ref{hakmem}] developed algorithms for adding and multiplying two CFs and for solving quadratics with CF coefficients, getting a CF as the result; the point of course is that we can do this entirely within the CF representation, never converting any values to decimals. Here we present slightly modified versions of those algorithms, with a different exposition which we hope will be useful.
+
+Before we consider how to add or multiply two CFs, we tackle the simpler problem of arithmetic with a single CF and a rational number. A few examples reveal that there is no evident general pattern for transforming the CF terms of irrational $x$ into the terms of $px/q$ or $x + p/q$ (where $p,q$ are integers), even in the apparently simplest cases:
+\begin{eqnarray*}
+\sqrt{7} & = & [2, (1, 1, 1, 4)] \\
+\sqrt{7}/2 & = & [1, (3, 10, 3, 2)] \\
+\sqrt{11} & = & [3, (3, 6)] \\
+\sqrt{11}/2 & = & [1, (1, 1, 1, 12, 1, 1, 1, 2)] \\
+\pi & = & [3,7,15,1,292,1,1,1, 2, 1, 3,\cdots]\\
+\pi + 1/2 & = & [3, 1, 1, 1, 3, 1, 3, 4, 73, 6, 3, 3, 2, 1, 3\cdots]
+\end{eqnarray*}
+
+
+%So for our motivating example let us compute $[y_0,y_1,y_2 \cdots] = \pi/3$. It will be convenient to have notation for the ``tail" of a continued fraction, so let $r_i = [\pi_{i+1}, \pi_{i+2},\cdots]$. Note that all $r_i \geq 1$, and $r_i = \pi_{i+1} + 1/r_{i+1}$. Knowing that $\pi_0 = \lfloor \pi \rfloor= 3$ is enough to establish $y_0=1$; more precisely
+%\begin{equation}
+%y = \frac{\pi}{3} = \frac{3 + 1/r_0}{3} = 1 + \frac{1}{3r_0} = 1 + \frac{1}{[y_1,y_2,\cdots]}
+%\end{equation}
+%Now $\pi_1=7$, so $3r_0 = 21 + 3/r_1 = [y_1,y_2,\cdots]$. This is not enough to determine $y_1$; it could be 21, 22, or 23. so we must use $\pi_2=15$ to get
+%\begin{equation}
+%[y_1,y_2,\cdots] = 21 + \frac{3}{15 + 1/r_2} = 21 + \frac{3r_2}{15r_2 + 1} \ .
+%\end{equation}
+%Thus $y_1 = 21$, and we can continue with
+%\begin{equation}
+%[y_2,y_3,\cdots] = \frac{15r_2 + 1}{3r_2} = 5 + \frac{1}{3r_2} %= 5 + \frac{1}{1 + 1/r_3} = 5 + \frac{r_3}{r_3 + 1}
+%\end{equation}
+%so $y_2=5$. 
+%
+%Or do we like the next example better? The homographic functions are a bit more interesting; leaning towards it strongly:
+
+As a motivating example for the general algorithm, let us compute $[y_0,y_1,y_2 \cdots] = \pi/2 = 1.5707963267948966/cdots$. It will be convenient to have notation for the ``tail" of a continued fraction, so let
+\[
+r_i = [\pi_{i+1}, \pi_{i+2},\cdots]\ .
+\]
+Note that all $r_i \geq 1$, and $r_i = \pi_{i+1} + 1/r_{i+1}$. The fact that $\pi_0 = \lfloor \pi \rfloor= 3$ is enough to determine $y_0=\lfloor \pi/2 \rfloor=1$; more precisely
+\begin{equation}
+y = \frac{\pi}{2} = \frac{3 + 1/r_0}{2} = \frac{3r_0+1}{2r_0} = 1 + \frac{r_0+1}{2r_0}= 1 + \frac{1}{[y_1,y_2,\cdots]}\ .
+\end{equation}
+Now we have to get $y_1$ from 
+\begin{equation}
+[y_1,y_2,\cdots] = \frac{2r_0}{r_0+1}\ .
+\end{equation}
+The mere fact that $r_0>1$ is enough to tell us that $\lfloor \frac{2r_0}{r_0+1} \rfloor = 1$, so we obtain $y_1=1$ and continue
+\begin{equation}
+[y_1,y_2,\cdots] = 1 + \frac{r_0-1}{r_0+1}
+\end{equation}
+\begin{equation}
+[y_2,\cdots] = \frac{r_0+1}{r_0-1} \ .
+\end{equation}
+Now the floor of $\frac{r_0+1}{r_0-1}$ ranges from 1 to infinity as $r_0$ ranges from one to infinity, so we need to make use of $\pi_1 = 7$ and $r_0 = 7+1/r_1$ to get
+\begin{equation}
+[y_2,\cdots] = \frac{8 + 1/r_1}{6 + 1/r_1} = \frac{8r_1 + 1}{6r_1 + 1} = 1 + \frac{2r_1}{6r_1 + 1}= 1 + \frac{1}{[y_3,\cdots]}\ .
+\end{equation}
+Thus $y_2=1$.  We also get $y_3 = 3$ from
+\begin{equation}
+[y_3,\cdots] =  \frac{6r_1 + 1}{2r_1} = 3 + \frac{1}{2r_1} = 3 + \frac{1}{[y_4,\cdots]}\ .
+\end{equation}
+Going further will require $\pi_2=15, r_1 = 15+1/r_2$.
+
+It is now clear that we will generate terms of $y$ by repeatedly determining the integer part (i.e. floor) of expressions of the form
+\begin{equation}\label{eq:homographic}
+\frac{px+q}{rx+s}
+\end{equation}
+where $x>1$ and the continued fraction expansion of $x$ is known. Functions of this form are called \emph{homographic}. %This terminology comes from projective geometry; is there a connection?
+We will identify a homographic function with the matrix
+$\left(
+\begin{smallmatrix} 
+p & q\\ 
+r & s 
+\end{smallmatrix}
+\right)$.
+
+To formalize our observations, we first define the \emph{range} of the function given by (\ref{eq:homographic}) as the set of possible integer parts, i.e.
+\begin{equation}
+\mathcal{R}\pqrs = \left\{ \left\lfloor \frac{px+q}{rx+s} \right\rfloor | \  1 < x < \infty \right\}
+\end{equation}
+We will be able to produce the next term of output when this set is a singleton. If $-s/r \leq 1$ then the denominator cannot be zero, and the upper and lower limits are the min and max of $\{p/r, (p+q)/(r+s)\}$: if $p/r$ is the max, and is also an integer, then the integer part cannot be larger than $p/r-1$, since we are approaching $p/r$ from below. If  $-s/r > 1$ the range will be infinite, so there is no need to compute it explicitly; we need to transform the expression by incorporating more information about $x$.
+
+We define two transformations on homographics. When the range of the homographic expression for $[y_j,y_{j+1},\cdots]$ is not a singleton set, we do not yet have enough information to determine $y_j$, and must $\emph{ingest}$ the next term of $x$. If this term is $k$ we make the substitution $x \leftarrow k + 1/x$, leading to the definition
+\begin{equation}
+\mbox{ingest}(k,\pqrs) = \homographic{kp+q}{p}{kr+s}{r}%\frac{(kp+q)x + p}{ (kr+s)x + r}
+\end{equation}
+
+
+When the range of the homographic expression for $[y_j,y_{j+1},\cdots]$ consists of a single integer $k$, we can \emph{produce} $k=y_j$ as the next output term; the rest of the output, $[y_{j+1},y_{j+2},\cdots]$ is the continued fraction expansion of $\frac{1}{\frac{px+q}{rx+s}-k}$. Rewriting this as a homographic leads to 
+\begin{equation}
+\mbox{produce}(k,\pqrs) = \homographic{r}{s}{p-kr}{q-ks}\ .%\frac{rx+s}{(p-kr)x + (q-ks)}
+\end{equation}
+
+Note that if we started with a rational $x$, we will eventually reach $x_i = \infty$; ingesting infinity returns ${\left(
+\begin{smallmatrix} 
+0 & p\\ 
+0 & r
+\end{smallmatrix}
+\right)}$. This represents a constant function at the rational number $p/q$, so there will never be any need to ingest the (nonexistent) subsequent 
+terms of $x$; if we proceed as in the examples above, we will compute the CF representation of $p/q$ as the final terms of the finite expansion of $y$.
+
+So now we have an algorithm for producing the CF expansion $[y_0,y_1,\cdots]$ of $\frac{px+q}{rx+s}$, assuming the expansion of $x$ is known:
+
+\begin{algorithmic}
+\STATE{$i \gets 0$} \COMMENT{index of the next term of $x$ we will read}
+\STATE{$j \gets 0$} \COMMENT{index of the next term of $y$ we will generate}
+\STATE{$M \gets \pqrs$} \COMMENT{the initial matrix, i.e. the expression whose CF we will compute}
+\STATE{$M \gets \mbox{ingest}(x_0, M)$}
+\STATE{$i \gets 1$}
+\WHILE {$M \neq 0$} 
+	\WHILE{$\mathcal{R}(M)$ is not a singleton}
+                   \STATE{$M \gets \mbox{ingest}(x_i, M)$}
+                   \STATE{$i \gets i+1$}
+           \ENDWHILE
+           \STATE{$k \gets \mathcal{R}(M)$}
+           \STATE{$y_j \gets k$}
+          \STATE{$M \gets \mbox{produce}(k,M)$}
+          \STATE{$j \gets j+1$}
+\ENDWHILE
+\end{algorithmic}
+
+For instance to compute $x/k$ we would start with $M=\left(
+\begin{smallmatrix} 
+1 & 0\\ 
+0 & k 
+\end{smallmatrix}
+\right)$; 
+to compute $kx$ we would start with $M=\left(
+\begin{smallmatrix} 
+k & 0\\ 
+0 & 1 
+\end{smallmatrix}
+\right)$; while $\frac{j}{k}+x$ would have $M=\left(
+\begin{smallmatrix} 
+k & j\\ 
+0 & k 
+\end{smallmatrix}
+\right)$.
+
+The ``while $M \neq 0$" loop is an infinite loop if $x$ is irrational. This can be implemented quite directly in a language like Haskell with lazy evaluation; such languages support conceptually infinite data structures (reference ?), which are a perfect fit for working with continued fractions. Defining a variable $y$ to be the result of algorithm (1) just associates $y$ with a finite recursive expression; the number of $y$ terms actually computed will be only what is needed by subsequent computations\footnote{Of course there is stull danger of an infinite loop, for instance if we try to print all of $y$, or if we ask ``when does 17 first appear as a term" when it never appears.}. The same effect can be attained in Python with iterators and ``yield" (reference ?).
+
+The inner loop ``while $\mathcal{R}(M)$ is not a singleton": is more subtle; is it guaranteed to terminate? In fact it is. We have already observed that this loop terminates if $x$ is rational, so assume it is irrational. Now $\mathcal{R}(M)$ is the set of possible integer values of blah for (x in range); $\mathcal{R}(ingest(x_0,M))$ is the set of possible integer values for
+$x$ in range blah 2; range gets arbitrarily small and converges toward $f(x)$; need to fix dual use of $x$ as constant.
+
+%%% resume these issues in next section:
+%Work through square-root example; can this infinite loop happen with single-argument homomorphic? No; our interval is shrinking toward an irrational number, so eventually there are no integers inside the interval; proof of this will set up
+%future consideration of infinite loops.
+%But more generally, if $x$ comes from a ``yield" or potentially infinite structure, we do not know if $x$ is rational! Come back to this when we do two-term arithmetic; for now we have assumed $x$ fully known.
+
+TODO: Think about how to carry error bars through a computation; Gosper has a bit about this, but I have not really absorbed it;
+should not be too hard if we work at it.
+
+%Fixes will be considered more thoroughly later. For now, should be able to prove that range is eventually two or fewer values (i.e. that width of real range approaches zero); basic fix is to take the lower, with possibility of later modification.
+
+\subsection{TODO:} Explicitly calculate upper/lower bounds and connect to basic facts about convergents;
+Haskell state should contain these bounds
+(or, better, have simple method to extract bound); this ``error bar" is what we use to terminate problematic computations
+like "sqrt 2 squared"; error estimate must be part of the ``CF object"; simple algorithm should stop and make use of error
+bound when it encounters violation of assumption that all $x_i \geq 1$.
+
+
+\subsection{Visualizing the Algorithm}
+Since $\mbox{ingest}(k,\pqrs)$ returns a matrix whose right column is
+$\left( \begin{smallmatrix} p \\  r \end{smallmatrix}\right)$,
+and $\mbox{produce}(k,\pqrs)$ returns a matrix whose top row is $(r\ s)$, we can visualize the progress of the algorithm as moving a $2 \times 2$ window through a two-dimensional grid of integers.
+We start with $M$ in the upper right corner; ingest moves left and produce moves down. We put the $x_i$ on the top row,
+at the positions where we ingest, and $y_j$ in the right column, at the positions where we produce. Here is such a representation
+of our earlier example of $\pi/2$, taken further to use $\pi = [3,7,15, 1\cdots]$ to obtain $\pi/2 = [1,1,1,3,31,\cdots]$.
+
+\begin{equation}\label{eq:2dgrid}
+\begin{matrix}
+ & & & 1& 15&       7&  3& &\\
+ & & &  &        &     3&   1& 0&\\
+ & & &  &        &     2&    0& 2& 1\\
+ & & &  &        8&   1&    1&   &  1\\
+ & & &  &        6&   1&    -1&  & 1\\
+ & & 32& 30&  2& 0&        &  &  3\\
+ & &  1&   1&  0&  1&        &  & 31\\
+ & &   1&  -1&   &    &        &  &
+\end{matrix}
+\end{equation}
+
+Such computations can be used to obtain values of hyperbolic trig functions (examples from Gosper).
+
+
+\section{Arithmetic on Two Continued Fractions}
+We now turn to adding or multiplying two CFs, which is mostly not so different from what we have already done. For example let $z = \pi + \sqrt{2} = 4.555806215962888\cdots$, with $[y_0, y_1,\cdots] = \sqrt{2} = [1,(2)]$. We can write this sum as
+\begin{equation}
+3 + \frac{1}{[\pi_1,\pi_2\cdots]} + 1 + \frac{1}{[y_1,\cdots]} = \frac{ 4[\pi_1,\cdots][y_1,\cdots] + [\pi_1,\cdots]  + [y_1\cdots]}{ [\pi_1,\cdots][y_1\cdots] }\ .
+\end{equation}
+Substituting $[\pi_1,\cdots] = 7 + 1/[\pi_2,\cdots]$ and $[y_1,\cdots] = 2 + 1/[y_2,\cdots]$ leads (after a lot of high-school algebra) to 
+\begin{equation}
+z = \frac{65[\pi_2,\cdots] [y_2,\cdots] + 29[\pi_2,\cdots] +9[y_2,\cdots] +4}{14[\pi_2,\cdots] [y_2,\cdots] + 7[\pi_2,\cdots] +2[y_2,\cdots] +1}
+\end{equation}
+The integer parts of $\frac{65}{14}, \frac{29}{7}, \frac{9}{2}$ and  $\frac{4}{1}$ are all 4; the mediant theorem 
+(TODO: expand upon use of mediant theorem, which must be in intro)
+thus tells us that $\lfloor z \rfloor =4$. The next term will be the floor of
+\begin{equation}
+(z-4)^{-1} =  \frac{14[\pi_2,\cdots] [y_2,\cdots] + 7[\pi_2,\cdots] +2[y_2,\cdots] +1}{9[\pi_2,\cdots] [y_2,\cdots] + [\pi_2,\cdots] +[y_2,\cdots]}
+\end{equation}
+into which we can substitute  $[\pi_2,\cdots]=15+\frac{1}{[\pi_3,\cdots]},  [y_2,\cdots]=2+\frac{1}{[y_3,\cdots]}$ and so on.
+
+Similarly the product $\pi\sqrt{2}=4.442882938158366\cdots$ is
+\begin{equation}\label{eq:cfMult}
+(3 + \frac{1}{[\pi_1,\cdots]})(1 + \frac{1}{[y_1\cdots]}) 
+  = \frac{ 3[\pi_1,\cdots][y_1\cdots] + 3[\pi_1,\cdots] + [y_1\cdots] +1 }{[\pi_1,\cdots][y_1\cdots] }\ .
+\end{equation}
+into which we can make the same substitutions. 
+
+In general, computing terms of a sum or product of CFs will require finding the floors of two-variable expressions of the form
+\begin{equation}\label{eq:bihomographic}
+\frac{axy + bx + cy + d}{exy + fx + gy + h}
+\end{equation}
+where $x$ and $y$ independently range from 1 to $\infty$. Such an expression is called \emph{bihomographic}, and will be represented by the matrix $\abcd$. To determine bounds on the floor of (\ref{eq:bihomographic}), it is convenient to make the substitutions $\hat{x} = x-1, \hat{y} = y-1$, and consider
+\[
+\frac{a\hat{x}\hat{y} + (a+b)\hat{x} + (a+c)\hat{y} + (a+b+c+d)}{e\hat{x}\hat{y} + (e+f)\hat{x} + (e+g)\hat{y} + (e+f+g+h)}
+\]
+as $\hat{x}, \hat{y}$ range independently from zero to infinity. If the denominator cannot be zero, the floor is always between the minimum and maximum of
+\[
+\left\{ \frac{a}{e},\frac{a+b}{e+f},\frac{a+c}{e+g},\frac{a+b+c+d}{e+f+g+h} \right\}\ .
+\]
+What are the constraints that prevent denominator from changing sign?
+
+When the floor (i.e. the next term of output) is known, we produce output $k$ and the next bihomographic expression is
+\[
+\left(\frac{axy + bx + cy + d}{exy + fx + gy + h} - k\right)^{-1} = \frac{exy + fx + gy + h}{(a-ke)xy + (b-kf)x + (c-kg)y + (d-kh)}\ .
+\]
+If the floor is not determined, we must narrow its range by ``ingesting" the next term of either $x$ or $y$. If we first use $y = [s,y_1,y_2]$, we make the substitution $y \leftarrow s + 1/y$ to get
+\[
+\frac{(sa+b)xy + ax + (sc+d)y + c}{(se+f)xy + ex + (sg+h)y + g}\ .
+\]
+Given a bihomographic expression whose floor is not determined, we may ingest the next term of either $x$ or $y$. Which should we choose? We would like to ingest as few terms as possible before the next output term is obtained; Gosper suggests a heuristic for choosing the input term most likely to get us to the next output term more quickly.
+TODO: (summarize Gosper's heuristic, possibly with exact quote.) 
+But the simple expedient of alternating between $x$ and $y$ seems reasonable.
+TODO: (can we justify this statement?)
+
+TODO: illustrate with graphs of homographic functions; need to use plotting utility.
+
+TODO: explicit statement of baseline algorithm for two CFs.
+
+It is interesting that the algorithms for all arithmetic operations are identical, except for the initial setup. The reason, one might say, is that division is the hardest arithmetic operation, and the definition of continued fractions has division built-in to everything!
+
+\subsection{Failure to Converge}
+Unfortunately, combination of two irrational CFs can fail to converge; i.e. we might endlessly ingest terms of both $x$ and $y$ without ever obtaining a bihomographic expression whose floor is known. The simplest case is multiplying $\sqrt{2}$ by itself. The first few iterations yield
+\begin{equation}%array??
+z = \sqrt{2}*\sqrt{2} = \frac{r^2 + 2r + 1}{r^2}
+%use Haskell matrix-ingest method to get subsequent terms
+\end{equation}
+We can see the source of the problem; we should have $z=[2,\infty]$, but no finite number of terms can ever tell us that $z_1$ is infinite; it is always possible that one input is a bit less or a bit more than $\sqrt{2}$, and it is always possible that $z$ is a bit less or a bit more than 2.
+
+Ideally, we should be computing symbolically if we know that a term is exactly $\sqrt{2}$ et cetera! What should we say about that?
+
+Lazy approach is to declare that after ingesting, say, 100 terms, we will stop and declare the output to be the lone integer inside our small range. The lazy approach is rather appealing; it gives the correct answer in this case! In general, the lazy approach will give the right answer when that answer is a rational number with reasonably small denominator. Of course this is no different from pretending that $\sqrt{2}$ is \emph{exactly} $1.41421356$, which gives the correct answer if we multiply it by itself and truncate to seven decimal places.  But we can hardly be satisfied; aside from pure intellectual curiosity, the reason for using CFs must be a concern for highly accurate and highly efficient computation. The right answer is error bars and zero/negative terms to fix errors in what we have already output.
+
+
+\section{Utility of CF arithmetic}
+We must admit at this point that our algorithm 1 is something of a cheat; it is correct as stated, but the assumption that the expansion of $x$ is completely known is a rather strong one; it is valid for known constants like $\pi$, but not for the intermediate results of arbitrary computations. (TODO: CF object must include error bars, we must propagate errors.)
+
+Gosper wrote 
+\begin{quote}
+When you analyze why people actually bother with numerical arithmetic instead of leaving things symbolic, you find that the main reason is for deciding inequalities. Imagine how much computational effort has been wasted in generating bits to the right of the decisive ones in inequalities ... another great waste of effort is the generation of information which is destroyed by truncation and rounding.
+\end{quote}
+ This statement is not strictly correct; such computational effort is not necessarily ``wasted", rather it is invested in attaining something else: algorithmic simplicity. The question is, when is the tradeoff favorable? Has anything like this been tried at scale?
+
+\end{document}  
