@@ -1,12 +1,3 @@
--- get CF from float
-float2cf x | x == floor_x   = [floor x]
-           | otherwise      = (floor x):(float2cf (1/(x - floor_x)))
-               where floor_x = fromIntegral (floor x)
-
--- evaluate CF up to k^{th} term
-evalCF k (a:[]) = a
-evalCF k (a:as) | k > 0     = a + 1/(evalCF (k-1) as)
-                | otherwise = a
 
 {-
  - Gosper's algorithm for arithmetic on pairs of CFs
@@ -20,9 +11,9 @@ noOutput = -99999999999999999
 mightBeInf (n,d) = d==0 && n/=0
 allZero curMatrix = all (all (==0)) curMatrix
 openceil p r = (div p r) + if (mod p r) == 0 then -1 else 0 -- if asymptotic upper bound is k, integer part is <= k-1
-range_ [numr,denr] | any (>0) denr && any (<0) denr && any (/= 0) numr = (-999999999,999999999) -- sign change in denominator
-                   | any mightBeInf [ (n,d) | (n,d) <- zip numr denr ] = (-999999999,999999999) -- infinite upper bound
-                   | allZero [numr,denr]                               = (-999999999,999999999) -- end of computation
+range_ [numr,denr] | any (>0) denr && any (<0) denr && any (/= 0) numr = (-999999999,infinity) -- sign change in denominator
+                   | any mightBeInf [ (n,d) | (n,d) <- zip numr denr ] = (-999999999,infinity) -- infinite upper bound
+                   | allZero [numr,denr]                               = (-999999999,infinity) -- end of computation
                    | otherwise = ( fromIntegral (minimum [ (div n d)      | (n,d) <- zip numr denr , d /= 0]),
                                    fromIntegral (maximum [ (openceil n d) | (n,d) <- zip numr denr , d /= 0]) )
 
@@ -69,50 +60,60 @@ notInf      (_, (curM, bn)) = bn /= infinity
 arithCF initialState x y = map (fromIntegral.snd.snd) (takeWhile notInf ( filter outputState (arithCF_ x y initialState) ))
 
 -- matrix initializations for arithmetic
-initAdd = [[0,1,1,0],[0,0,0,1]]
-initSub = [[0,1,-1,0],[0,0,0,1]]
-initMul = [[1,0,0,0],[0,0,0,1]]
-initDiv = [[0,1,0,0],[0,0,1,0]]
-
-addCF = arithCF initAdd
-subCF = arithCF initSub
-mulCF = arithCF initMul
-divCF = arithCF initDiv
+addCF = arithCF [[0,1,1,0],[0,0,0,1]]
+subCF = arithCF [[0,1,-1,0],[0,0,0,1]]
+mulCF = arithCF [[1,0,0,0],[0,0,0,1]]
+divCF = arithCF [[0,1,0,0],[0,0,1,0]]
 
 {-
  - turn continued fractions into a type with operator overloading
  -}
 
-newtype CF = MakeCF [Integer]
-fromCF :: CF -> [Integer]
-fromCF (MakeCF terms) = terms
+newtype CF = MakeCF { getCF :: [Integer] }
+
+-- get CF from float
+floatToCFterms x | x == floor_x   = [floor x]
+                 | otherwise      = (floor x):(floatToCFterms (1/(x - floor_x)))
+                   where floor_x = fromIntegral (floor x)
+floatToCF x = MakeCF (floatToCFterms x)
+
+-- evaluate CF up to k^{th} term
+evalCFterms k (a:[]) = fromIntegral a
+evalCFterms k (a:as) | k > 0     = a_ + 1/(evalCFterms (k-1) as)
+                     | otherwise = a_
+                        where a_ = fromIntegral a
+evalCF k (MakeCF terms) = evalCFterms k terms
+
+-- convert CF to float (default accuracy)
+fromCF (MakeCF terms) = evalCFterms 100 terms
 
 instance Num CF where
   fromInteger n  = MakeCF [n]
-  x + y = MakeCF (addCF (fromCF x) (fromCF y))
-  x - y = MakeCF (subCF (fromCF x) (fromCF y))
-  x * y = MakeCF (mulCF (fromCF x) (fromCF y))
-  -- abs is nontrivial !!
-  abs x | (fromCF x)!!0 >= 0 = x
-        |  otherwise         = x * (MakeCF [-1])
-  signum (MakeCF terms ) | all (== 0) (take 100 terms)  = 0
-                         | otherwise                       = signum (MakeCF [terms!!0])
+  x + y = MakeCF (addCF (getCF x) (getCF y))
+  x - y = MakeCF (subCF (getCF x) (getCF y))
+  x * y = MakeCF (mulCF (getCF x) (getCF y))
+  abs x | (getCF x)!!0 >= 0 = x
+        |  otherwise        = x * (MakeCF [-1])
+  signum x | all (== 0) (take 2 terms)  = 0 -- terms == [0]
+           | terms!!0 == 0              = 1 -- terms == 0:nonzero
+           | otherwise                  = signum (MakeCF [terms!!0])
+               where terms = getCF x
 
 instance Fractional CF where
-  x / y  = MakeCF (divCF (fromCF x) (fromCF y))
-  fromRational x = MakeCF (float2cf x)
+  x / y          = MakeCF (divCF (getCF x) (getCF y))
+  fromRational x = floatToCF x
 
 instance Eq CF where
   x == y = and (take 100 compxy)
-         where compxy = [xt==yt | (xt,yt) <- zip (fromCF x) (fromCF y)]
+         where compxy = [xt==yt | (xt,yt) <- zip (getCF x) (getCF y)]
 
 instance Ord CF where
   x <= y = xterms!!0 < yterms!!0 || (xterms!!0 == yterms!!0 && (MakeCF (drop 1 xterms)) >= (MakeCF (drop 1 yterms)))
-           where xterms = fromCF x
-                 yterms = fromCF y
+           where xterms = getCF x
+                 yterms = getCF y
 
 instance Show CF where
-  show x = show (take 8 (fromCF x))
+  show x = show (take 8 (getCF x))
 
 showNterms n (MakeCF terms) = take n terms
 
@@ -121,7 +122,7 @@ sqrt2 = MakeCF (1:(cycle [2]))
 -- "[0..]" has to be an Enum type
 e = MakeCF ([2, 1, 2] ++ (concat [ [1,1,4+2*k] | k <- (map fromIntegral [0..]) ]))
 -- 'pi' is defined in standard prelude
-piCF = MakeCF (float2cf pi)
+piCF = floatToCF pi
 phi = MakeCF (cycle [1])
 gamma = MakeCF [0, 1, 1, 2, 1, 2, 1, 4, 3, 13, 5, 1, 1, 8, 1, 2, 4, 1, 1, 40, 1, 11, 3, 7, 1, 7, 1, 1, 5, 1, 49, 4, 1, 65, 1, 4, 7, 11, 1, 399, 2, 1, 3, 2, 1, 2, 1, 5, 3, 2, 1, 10, 1, 1, 1, 1, 2, 1, 1, 3, 1, 4, 1, 1, 2, 5, 1, 3, 6, 2, 1, 2, 1, 1, 1, 2, 1, 3, 16, 8, 1, 1, 2, 16, 6, 1, 2, 2, 1, 7, 2, 1, 1, 1, 3, 1, 2, 1, 2]
 
