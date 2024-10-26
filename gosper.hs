@@ -1,3 +1,4 @@
+import Data.Ratio -- get (%) operator for rational approximation
 
 {-
  - Gosper's algorithm for arithmetic on pairs of CFs
@@ -79,7 +80,7 @@ floatToCF x = MakeCF (floatToCFterms x)
 
 -- evaluate CF up to k^{th} term
 evalCFterms k (a:[]) = fromIntegral a
-evalCFterms k (a:as) | k > 0     = a_ + 1/(evalCFterms (k-1) as)
+evalCFterms k (a:as) | k > 1     = a_ + 1/(evalCFterms (k-1) as)
                      | otherwise = a_
                         where a_ = fromIntegral a
 evalCF k (MakeCF terms) = evalCFterms k terms
@@ -116,6 +117,13 @@ instance Show CF where
   show x = show (take 8 (getCF x))
 
 showNterms n (MakeCF terms) = take n terms
+
+-- rational approximation from CF
+asRational k (MakeCF terms) | null terms                   = infinity % 1 -- Rational cannot have zero denominator
+                            | k<=1  || (null $ tail terms) = (terms!!0) % 1
+                            | otherwise                    = ((terms!!0)*num+ den) % num 
+                               where tailOfCF  = asRational (k-1) (MakeCF $ tail terms)
+                                     (num,den) = (numerator tailOfCF, denominator tailOfCF)
 
 -- examples for testing
 -- sqrt2 = MakeCF (1:(cycle [2]))

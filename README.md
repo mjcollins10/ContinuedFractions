@@ -15,27 +15,28 @@ Sample usage:
 	[3,7,15,1,292,1,1,1]
 	*Main> showNterms 15 piCF              -- view more terms
 	[3,7,15,1,292,1,1,1,2,1,3,1,14,3,3]
-	*Main> fromCF piCF                  -- convert to Float with default accuracy
+	*Main> take 15 (getCF piCF)            -- getCF unwraps list
+	[3,7,15,1,292,1,1,1,2,1,3,1,14,3,3]	
+	*Main> fromCF piCF                -- convert to Float with default accuracy
 	3.141592653589793
-	*Main> evalCF 2 piCF               -- evaluate to given number of terms
+	*Main> evalCF 3 piCF              -- evaluate to given number of terms
 	3.141509433962264
-	*Main> sqrt2 + 3*piCF              -- arithmetic operators
+	*Main> sqrt2 + 3*piCF             -- arithmetic operators
 	[10,1,5,4,1,2,1,7]
-	*Main> sqrt2 < piCF                -- comparison operators
+	*Main> sqrt2 < piCF               -- comparison operators
 	True
+	*Main> asRational 2 piCF          -- rational approx from first n terms
+	22 % 7	
+	*Main> asRational 3 piCF
+	333 % 106
+	*Main> 333/106                    -- equal to evalCF 3 piCF
+	3.141509433962264
 
-
-
-
-
-
-Infinite loops are an inherent problem when computing with CFs; we need
+Infinite loops are an inherent problem when computing with CFs; for instance we need
 infinitely many terms to know that sqrt2/sqrt2 == 1, since a finite number 
 of terms is never enough to tell us that the numerator and denominator are
-equal! In fact we need to read infinitely many terms of input just to get
-the first term of output, since finitely many terms are not enough to tell
-us if the numerator is larger or smaller than the denominator. In this 
-version we deal with the problem in the crudest possible way, by just 
+equal! In fact in this case we need to read infinitely many terms of input just to get the first term of output, since finitely many terms are not enough to tell
+us if the numerator is larger or smaller than the denominator. Currently we deal with this problem in the crudest possible way, by just 
 terminating computations that go on for a large number of iterations and
 taking the closest approximation. This is hardly satisfactory, although it
 gives correct answers in many cases -- i.e. when the correct answer is a 
@@ -45,6 +46,11 @@ rational number with reasonaby small denominator:
 	[1]
 	*Main> sqrt2*sqrt2
 	[2]
+	*Main> phi = MakeCF (cycle [1])    -- the golden ratio
+	*Main> phi^2 == 1 + phi
+	True
+	*Main> phi^2 - 1 - phi
+	[0]
 
 In a future version we will deal with this correctly, by letting the user
 specify a threshold for how close two numbers must be to be considered
