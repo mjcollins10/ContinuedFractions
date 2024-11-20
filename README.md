@@ -1,57 +1,28 @@
 # ContinuedFractions
-A Haskell implementation of Gosper's algorithm for arithmetic on continued fractions. All computations and comparisons are done on the CF representation; conversion to float only happens if we explicitly convert a result. See cfAlgorithm.tex for more details.
+A Haskell implementation of Gosper's algorithm for arithmetic on continued fractions. All computations and comparisons are done on the CF representation with integer arithmetic; conversion to float only happens if we explicitly convert a result. See cfAlgorithm.tex for (many) more details.
+
 Sample usage:
-
-
 
 	user@Users-MacBook-Pro ContinuedFractions % ghci
 	GHCi, version 8.10.7: https://www.haskell.org/ghc/  :? for help
 	Prelude> :load gosper.hs 
 	[1 of 1] Compiling Main             ( gosper.hs, interpreted )
 	Ok, one module loaded.
-	*Main> sqrt2 = MakeCF (1:(cycle [2]))  -- CF is a wrapper for [Integer]
-	*Main> piCF  = floatToCF pi            -- create CF from Numeric
-	*Main> piCF                            -- show 8 terms by default
-	[3,7,15,1,292,1,1,1]
-	*Main> showNterms 15 piCF              -- view more terms
-	[3,7,15,1,292,1,1,1,2,1,3,1,14,3,3]
-	*Main> take 15 (getCF piCF)            -- getCF unwraps list
-	[3,7,15,1,292,1,1,1,2,1,3,1,14,3,3]	
-	*Main> fromCF piCF                -- convert to Float with default accuracy
-	3.141592653589793
-	*Main> evalCF 3 piCF              -- evaluate to given number of terms
-	3.141509433962264
-	*Main> sqrt2 + 3*piCF             -- arithmetic operators
-	[10,1,5,4,1,2,1,7]
-	*Main> sqrt2 < piCF               -- comparison operators
-	True
-	*Main> asRational 2 piCF          -- rational approx from first n terms
-	22 % 7	
-	*Main> asRational 3 piCF
-	333 % 106
-	*Main> 333/106                    -- equal to evalCF 3 piCF
-	3.141509433962264
+	*Main> sqrt2 = makeCF (1:(cycle [2])) -- create CF from list of integer terms
+	*Main> sqrt2
+	cf[1,2,2,2,2,2,2,2,2,2,2,2,2,2]
+	*Main>:type sqrt2
+	sqrt2 :: CF
+	*Main> 
+	
+By default, we display enough terms of a CF to get accuracy within 2^(-32); Haskell's lazy evaluation and infinite data structures enable us to attain arbitrary accuracy. We prepend "cf" to make it obvious that the value being shown is not of type [Integer]. CF is an instance of Num, Fractional, Ord, and Eq:
 
-Infinite loops are an inherent problem when computing with CFs; for instance we need
-infinitely many terms to know that sqrt2/sqrt2 == 1, since a finite number 
-of terms is never enough to tell us that the numerator and denominator are
-equal! In fact in this case we need to read infinitely many terms of input just to get the first term of output, since finitely many terms are not enough to tell
-us if the numerator is larger or smaller than the denominator. Currently we deal with this problem in the crudest possible way, by just 
-terminating computations that go on for a large number of iterations and
-taking the closest approximation. This is hardly satisfactory, although it
-gives correct answers in many cases -- i.e. when the correct answer is a 
-rational number with reasonaby small denominator:
-
-	*Main> piCF/piCF
-	[1]
-	*Main> sqrt2*sqrt2
-	[2]
-	*Main> phi = MakeCF (cycle [1])    -- the golden ratio
-	*Main> phi^2 == 1 + phi
-	True
-	*Main> phi^2 - 1 - phi
-	[0]
-
-In a future version we will deal with this correctly, by letting the user
-specify a threshold for how close two numbers must be to be considered
-equal, and taking all computations to that much accuracy.
+	*Main> pie = floatToCF pi -- create CF from Numeric type
+	*Main> pie
+	cf[3,7,15,1,292,1,1]
+	*Main> (pie + sqrt2)/3
+	cf[1,1,1,12,1,15,2,29,3]
+	*Main> pie < sqrt2
+	False
+	*Main> sqrt2 * sqrt2
+	cf[2]
