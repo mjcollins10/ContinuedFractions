@@ -8,7 +8,7 @@ import Data.Ratio -- get (%) operator for rational arithmetic
 termToBound n =  (n%1, (n+1)%1) -- generalized internal representation of CF term
 epsDefault = 1 % 2^32 -- default threshold for 'equality'
 infinity :: Integer
-infinity = 999999999999999999
+infinity = 999999999999999999999999999999999999999999999999999999
 nobound = (1%1, infinity%1)
 pmInfinity = (-infinity%1, infinity%1) 
 
@@ -17,17 +17,14 @@ pmInfinity = (-infinity%1, infinity%1)
 -- 'normally' this is min,max of {a/e, b/f, c/g, d/h}
 -- ratRange_ is min,max of bihomomorphic matrix
 mightBeInf (n,d) = d==0 && n/=0
-allZero curMatrix = all (all (==0)) curMatrix
 openceil p r = (div p r) + if (mod p r) == 0 then -1 else 0 -- if asymptotic upper bound is k, integer part is <= k-1
 range_ [numr,denr] | any (>0) denr && any (<0) denr && any (/= 0) numr = (-infinity,infinity) -- sign change in denominator
                    | any mightBeInf [ (n,d) | (n,d) <- zip numr denr ] = (-infinity,infinity) -- infinite upper bound
-                   | allZero [numr,denr]                               = (-infinity,infinity) -- finite computation has terminated
                    | otherwise = ( fromIntegral (minimum [ (div n d)      | (n,d) <- zip numr denr , d /= 0]),
                                    fromIntegral (maximum [ (openceil n d) | (n,d) <- zip numr denr , d /= 0]) )
 
 ratRange_ [numr,denr] | any (>0) denr && any (<0) denr && any (/= 0) numr = pmInfinity -- sign change in denominator
                       | any mightBeInf [ (n,d) | (n,d) <- zip numr denr ] = pmInfinity -- infinite upper bound
-                      | allZero [numr,denr]                               = pmInfinity -- finite computation has terminated
                       | otherwise = ( minimum [ n%d | (n,d) <- zip numr denr , d /= 0],
                                       maximum [ n%d | (n,d) <- zip numr denr , d /= 0] )
 
@@ -46,10 +43,10 @@ ratRange (matrix, boundX, boundY) = ratRange_ (map shift matrixWithBounds)
 -- substitution x <- n + 1/x (and now x represents the next term of output);
 -- otherwise just update bounds, leaving matrix the same; new bound will always be tighter
 isTerm (lo,hi) = (denominator lo == 1) && (denominator hi == 1) && ((numerator hi == 1 + numerator lo) || (numerator lo == infinity))
-ingestX termOrBound (matrix,boundX,boundY) | isTerm termOrBound = (substituteX termOrBound matrix , nobound, nobound)
+ingestX termOrBound (matrix,boundX,boundY) | isTerm termOrBound = (substituteX termOrBound matrix , nobound, boundY)
                                            | otherwise          = (matrix, termOrBound, boundY)
 
-ingestY termOrBound (matrix,boundX,boundY) | isTerm termOrBound = (substituteY termOrBound matrix , nobound, nobound)
+ingestY termOrBound (matrix,boundX,boundY) | isTerm termOrBound = (substituteY termOrBound matrix , boundX, nobound)
                                            | otherwise          = (matrix, boundX, termOrBound)
 
 -- transform bihomomorphic matrix (axy + bx +cy + d)/(exy + fx + gy + h)
@@ -77,7 +74,7 @@ substituteY (lo,hi) [[a,b,c,d],[e,f,g,h]] | all (==0) [a,c,e,g] = [[0,b,0,d],[0,
 
 -- when we know that the next term of output is n, the matrix representing the rest of the output
 -- is (numerator/denominator - n)^{-1}
-produce n [numerator, denominator] = ( [denominator, [j-n*k | (j,k) <- zip numerator denominator]], nobound, nobound )
+produce n ([num, den], boundX, boundY) = ( [den, [j-n*k | (j,k) <- zip num den]], boundX, boundY )
 
 -- finite (i.e. rational) CF is implicitly terminated by infinite list of infinite terms
 head_ [] = (infinity%1, infinity%1)
@@ -86,16 +83,14 @@ tail_ [] = []
 tail_ xs = tail xs
 
 -- one iteration of Gosper's algorithm:
--- produce the next term of output if we can,otherwise read both x and y and produce range
+-- produce the next term of output if we can; otherwise read both x and y and produce range
 -- current state is ( (unread part of x, unread part of y),
 --                    ((current bihomomorphic matrix, bound on x, bound on y), last output) )
--- ingesting term changes matrix and sets bounds to [1,Inf]
--- ingesting bound does nothing to matrix, just updates bounds
-gosper ((x,y),(curM,_))  | allZero m      = ((x,y), (curM, (infinity%1,infinity%1))) -- stop on all-zero state
-                         | low == hi      = ((x,y), (produce hi m, termToBound hi))  -- produce another term of output
-                         | otherwise      = ((tail_ x,tail_ y), (ingestY (head_ y) (ingestX (head_ x) curM), ratRange curM)) -- get next x,y
-                              where (low,hi)  = range curM
-                                    (m, _, _) = curM
+-- ingesting term changes matrix and sets bound to [1,Inf]
+-- ingesting bound does nothing to matrix, just updates bound
+gosper ((x,y),(curM,_))  | low == hi  = ((x,y), (produce hi curM, termToBound hi))  -- produce another term of output 
+                         | otherwise  = ((tail_ x,tail_ y), (ingestY (head_ y) (ingestX (head_ x) curM), ratRange curM)) -- get next x,y
+                              where (low,hi) = range curM
 
 -- always start by ingesting leading terms
 arithCF_ x y initM = iterate gosper ((tail_ x, tail_ y), ( (ingestY (head_ y) (ingestX (head_ x) initM)) , ratRange initM)) 
@@ -165,7 +160,7 @@ floatToCFterms x | x == floor_x   = [floor x]
 -- evaluate a finite sequence of terms
 ratEval []     = fromIntegral infinity
 ratEval (a:[]) = a
-ratEval (a:as) = a + 1/(ratEval as)
+ratEval (a:as) = if (ratEval as) == 0 then (fromIntegral infinity) else a + 1/(ratEval as)
 
 -- convert a finite list of bounds to a finite list of terms
 display_ [] = []
@@ -198,7 +193,7 @@ delta cf = abs ((fst limits) - (snd limits))
              where limits = upperLower cf
 
 -- evaluate CF up to given accuracy
-extractFiniteCF_ eps (MakeCF_ bounds) = head (dropWhile (unfinished eps) approximations) -- return first sufficient approximation
+extractFiniteCF_ eps (MakeCF_ bounds) = head (dropWhile (unfinished (toRational eps)) approximations) -- return first sufficient approximation
                                          where approximations = map fst (iterate reduce ([head validBounds], tail validBounds))
                                                validBounds = filter (/= pmInfinity) bounds
 -- current finite view of cf is unfinished if value is not yet bounded tightly enough
@@ -213,15 +208,15 @@ instance Show CF where
  - examples for testing
  -}
 
-sqrt2 = makeCF (1:(cycle [2]))
+-- sqrt2 = makeCF (1:(cycle [2]))
 -- "[0..]" has to be an Enum type
-e = makeCF ([2, 1, 2] ++ (concat [ [1,1,4+2*k] | k <- (map fromIntegral [0..]) ]))
+-- e = makeCF ([2, 1, 2] ++ (concat [ [1,1,4+2*k] | k <- (map fromIntegral [0..]) ]))
 -- 'pi' is defined in standard prelude
-piCF = floatToCF pi
+-- piCF = floatToCF pi
 -- golden ratio
-phi = makeCF (cycle [1])
+-- phi = makeCF (cycle [1])
 -- Euler-Mascheroni constant
-gamma = makeCF [0, 1, 1, 2, 1, 2, 1, 4, 3, 13, 5, 1, 1, 8, 1, 2, 4, 1, 1, 40, 1, 11, 3, 7, 1, 7, 1, 1, 5, 1, 49, 4, 1, 65, 1, 4, 7, 11, 1, 399, 2, 1, 3, 2, 1, 2, 1, 5, 3, 2, 1, 10, 1, 1, 1, 1, 2, 1, 1, 3, 1, 4, 1, 1, 2, 5, 1, 3, 6, 2, 1, 2, 1, 1, 1, 2, 1, 3, 16, 8, 1, 1, 2, 16, 6, 1, 2, 2, 1, 7, 2, 1, 1, 1, 3, 1, 2, 1, 2]
+-- gamma = makeCF [0, 1, 1, 2, 1, 2, 1, 4, 3, 13, 5, 1, 1, 8, 1, 2, 4, 1, 1, 40, 1, 11, 3, 7, 1, 7, 1, 1, 5, 1, 49, 4, 1, 65, 1, 4, 7, 11, 1, 399, 2, 1, 3, 2, 1, 2, 1, 5, 3, 2, 1, 10, 1, 1, 1, 1, 2, 1, 1, 3, 1, 4, 1, 1, 2, 5, 1, 3, 6, 2, 1, 2, 1, 1, 1, 2, 1, 3, 16, 8, 1, 1, 2, 16, 6, 1, 2, 2, 1, 7, 2, 1, 1, 1, 3, 1, 2, 1, 2]
 
 {-
  - TODO: (piCF + 3.14159) works but (piCF + pi) does not;
