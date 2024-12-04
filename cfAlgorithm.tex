@@ -325,12 +325,17 @@ At the opposite extreme, the internal representation for $\sqrt{2}^2$ will consi
 [[\frac{16}{9},\frac{9}{4}), [\frac{49}{25},\frac{100}{49}), [\frac{576}{289},\frac{289}{144}), \cdots]\ .
 \] 
 
-The general idea (elaborated more fully in the next section) is that we will generate output on \emph{every} iteration of the arithmetic algorithm; when we cannot produce a term, we output upper and lower bounds on the current homomorphic matrix, leaving the matrix unchanged. Reading such output, there can be no ambiguity about the term to which a bound applies; the first bound applies to $z_0$, and as soon as we encounter a bound which uniquely determines $z_k$ (i.e. an interval with $\lfloor x \rfloor$ the same for all $x$ in the interval), we know that the next bound will apply to $z_{k+1}$. This implies that any finite prefix of the output sequence will determine a finite prefix $[z_0 \cdots z_{k-1}]$ of the actual CF, followed by a bound $[\ell_k,u_k)$ on the tail $[z_k, z_{k+1}\cdots]$. The exact value of the CF is between $[z_0 \cdots z_{k-1}, \ell_k]$ and $[z_0 \cdots z_{k-1}, u_k]$ (where we extend the usual CF notation by allowing a rational number, instead of an integer, as the last term).
+The general idea (elaborated more fully in section \label{sec:finalAlgorithm}) is that we will generate output on \emph{every} iteration of the arithmetic algorithm; when we cannot produce a term, we output upper and lower bounds on the current homomorphic matrix, leaving the matrix unchanged. Reading such output, there can be no ambiguity about the term to which a bound applies; the first bound applies to $z_0$, and as soon as we encounter a bound which uniquely determines $z_k$ (i.e. an interval with $\lfloor x \rfloor$ the same for all $x$ in the interval), we know that the next bound will apply to $z_{k+1}$. This implies that any finite prefix of the output sequence will determine a finite prefix $[z_0 \cdots z_{k-1}]$ of the actual CF, followed by a bound $[\ell_k,u_k)$ on the tail $[z_k, z_{k+1}\cdots]$. The exact value of the CF is between $[z_0 \cdots z_{k-1}, \ell_k]$ and $[z_0 \cdots z_{k-1}, u_k]$ (where we extend the usual CF notation by allowing a rational number, instead of an integer, as the last term).
 
-Note that storage of a long sequence of intervals is not a problem for implementation; successive bounds on the same term are always tighter, so there is no need to retain earlier bounds when a new one is obtained. We must note however that this representation of CF arithmetic makes it \emph{impossible} to simply ask a question like ``what are the first five terms of $z = xy$?" An explicit list of terms can only be relative to a required degree of accuracy $\varepsilon$. To obtain terms, we find a prefix of the interval sequence which is long enough to make the difference between $[z_0 \cdots z_{k-1}, \ell_k]$ and $[z_0 \cdots z_{k-1}, u_k]$ less than $\varepsilon$; then our approximate CF is $[z_0 \cdots z_k]$, where $z_k$ is some integer in the interval $[\ell_k,u_k)$. By convention we may take $z_k = \lfloor u_k \rfloor$. 
+Note that storage of a long sequence of intervals is not a problem for implementation; successive bounds on the same term are always tighter, so there is no need to retain earlier bounds when a new one is obtained. 
+
+\subsection{Extracting Terms}
+We must note that our representation of CF arithmetic makes it \emph{impossible} to simply ask a question like ``what are the first five terms of $z = xy$?" An explicit list of terms can only be relative to a required degree of accuracy $\varepsilon$. Our arithmetic algorithms consume and return theoretically infinite sequences of intervals; extracting a sequence of terms is a separate ``post-processing" step. To obtain terms, we find a prefix of the output interval sequence which is long enough to make the difference between $[z_0 \cdots z_{k-1}, \ell_k]$ and $[z_0 \cdots z_{k-1}, u_k]$ less than $\varepsilon$; then our approximate CF is $[z_0 \cdots z_k]$, where $z_k$ is some integer in the interval $[\ell_k,u_k)$. By convention we may take $z_k = \lfloor u_k \rfloor$. 
+
+In the case of $\sqrt{2}^2$, any accuracy threshold will yield the same result, $z = [2,\infty]$.
 
 
-\subsection{An Algorithm for CF Arithmetic}
+\subsection{An Algorithm for CF Arithmetic}\label{sec:finalAlgorithm}
 We now present the full details of the algorithm suggested in the previous section.  We augment the matrix $M$ with a pair of intervals $\{I_x, I_y\} = \{[x_{\ell},x_{u}), [y_{\ell}, y_{u})\}$, the current bounds on the remaining tails of the inputs $x,y$. These intervals start at $(-\infty, \infty)$, since the first term could be any integer. When we ingest an interval of the form $[a,a+1)$ from $x$ or from $y$, we modify $M$ as before with $M \leftarrow \mbox{ingest\_x}(a,M)$ or $M \leftarrow \mbox{ingest\_y}(a,M)$, and we change that variable's bound to $[1, \infty)$. When we ingest an \emph{ambiguous} interval $[\ell, u)$ (i.e. a bound that does not determine the next term of the input), we replace the current bound on the corresponding variable with $[\ell, u)$, leaving $M$ unchanged. 
 
 We define $\mathcal{R}(M)$ to take the bounds into account, i.e.
@@ -380,22 +385,25 @@ When this is a singleton set $\{n\}$, we output $[n,n+1)$ and modify $M$ as befo
 
 
 \subsection{Possible Optimizations of the CF Arithmetic Algorithm}
-When we have to ingest the next interval from $x$ or $y$, and we see an ambiguous interval at the head of the list, it is not necessary to ingest that interval; we may skip it and go on to the next element of the list, which will give a tighter bound on the next term. Any such heuristic must guarantee that, given an infinite list of ambiguous input intervals, we eventually ingest something. Similarly, the algorithm does not need to output every ambiguous interval of $z$; but if we are generating an infinite list of ambiguous intervals, we must guarantee that we eventually output something.
+\subsubsection{Winnowing Interval Sequences}
+When we have to ingest the next interval from $x$ or $y$, and we see an ambiguous interval at the head of the list, it is not necessary to ingest that interval; we may skip it and go on to the next element of the list, which will give a tighter bound on the next term. Any such heuristic must guarantee that, given an infinite list of ambiguous input intervals, we eventually ingest something. Similarly, the algorithm does not need to output every ambiguous interval of $z$; but  we must guarantee that we eventually output something, even if we are generating an infinite list of ambiguous intervals.
 
+\subsubsection{Taming Large Coefficients}
 If a high degree of accuracy is required, the coefficients of $M$ may grow very large; performing rational arithmetic on arbitrarily large integers will incur a performance penalty. We might be able to take advantage of the fact that we do not require the tightest possible bounds on the next term; the only requirement for correctness is that the bounds converge to the correct value. We might divide every coefficient of $M$ by some large integer $k$, rounding each result up or down in whichever direction slightly widens the range of $M$. We might do the same with intervals whose numerators and denominators are very large. To guarantee convergence, we must never make an adjustment which makes a new bound weaker than the current bound.
+
+Any such decision to ``simplify" $M$ must consider the gap between the upper and lower bounds of $M$; if the gap is large relative to the reciprocals of the coefficients, we might be carrying too many digits. Remember that, with lazy evaluation, all computations are driven by how much accuracy we need; If the gap is small, yet we are still continuing the computation, it means that we need even tighter bounds. In such cases large coefficients might be unavoidable.
 
 
 \subsection{Computing the range of $M$}\label{sec:ComputeBounds}
 To compute min and max of $M$ subject to $x_{\ell} < x < x_u, y_{\ell} < y < y_u$:
 \begin{itemize}
 \item Let $\delta_x, \delta_y = x_u - x_{\ell}, y_u - y_{\ell}$
-\item Substitute $x \leftarrow x_{\ell} + \frac{\delta}{x'+1}$ and $y' \leftarrow y_{\ell} + \frac{\delta}{y'+1}$. Now $x$ goes from $x_{\ell}$ to $x_u$ as $x'$ goes from 0 to infinity, similarly for $y,y'$
+\item Substitute $x \leftarrow x_{\ell} + \frac{\delta}{x'+1}$ and $y \leftarrow y_{\ell} + \frac{\delta}{y'+1}$. Now $x$ goes from $x_{\ell}$ to $x_u$ as $x'$ goes from 0 to infinity, similarly for $y,y'$
 \item Let the coefficients of the resulting matrix be $\bihomographic{a'}{b'}{c'}{d'}{e'}{f'}{g'}{h'}$
 \end{itemize}
 The range of $M$ subject to the bounds will be the min and max of 
 \[
 \left\{ \frac{a'}{e'},\frac{b'}{f'},\frac{c'}{g'},\frac{d'}{h'} \right\}\ .
 \]
-
 
 \end{document}  
