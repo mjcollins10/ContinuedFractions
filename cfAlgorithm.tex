@@ -106,7 +106,7 @@ r & s
 
 To formalize our observations, we first define the \emph{range} of the function given by (\ref{eq:homographic}) as the set of possible floors, i.e.
 \begin{equation}
-\mathcal{R}\pqrs = \left\{ \left\lfloor \frac{px+q}{rx+s} \right\rfloor | \  1 < x < \infty \right\}
+\mathcal{R}\pqrs = \left\{ \left\lfloor \frac{px+q}{rx+s} \right\rfloor | \  1 \leq x < \infty \right\}
 \end{equation}
 We will be able to produce the next term of output when this set is a singleton. If $-s/r \leq 1$ then the denominator cannot be zero, and the upper and lower limits are the min and max of $\{p/r, (p+q)/(r+s)\}$: if $p/r$ is the max, and is also an integer, then the integer part cannot be larger than $p/r-1$, since we are approaching $p/r$ from below. If  $-s/r > 1$ the range will be infinite, so there is no need to compute it explicitly; we need to transform the expression by incorporating more information about $x$.
 
@@ -312,7 +312,7 @@ similarly matrix (\ref{eq:bound3}) is between $\frac{49}{25}$ and $\frac{100}{49
 
 The source of the problem is now clear: we should have $z=[z_0,z_1]=[2,\infty]$, but no finite number of terms can ever tell us that $z_0=2$. It is always possible that one input is in fact less than $\sqrt{2}$, so it is always possible that $z<2$ and $z_0=1$.
 
-Our approach to the problem is to separate the internal representation of a CF as a data structure from the mathematical notion of a  sequence of integer terms. The internal representation will contain explicit terms (i.e. $z_k=n$) whenever such can be determined, but might also contain arbitrary bounds on the tail $[z_k, z_{k+1}\cdots]$, such as the  sequence of bounds we derived for $\sqrt{2}*\sqrt{2}$. This is a direct generalization, because the explicit term  $z_k=n$ is equivalent to the bound 
+Our approach to the problem\footnote{For an entirely different approach see David Lester, ``Effective Continued Fractions", in \emph{Proceedings of 15th IEEE Symposium on Computer Arithmetic}, ARITH-15 2001, pp. 163-170.} is to separate the internal representation of a CF as a data structure from the mathematical notion of a  sequence of integer terms. The internal representation will contain explicit terms (i.e. $z_k=n$) whenever such can be determined, but might also contain arbitrary bounds on the tail $[z_k, z_{k+1}\cdots]$, such as the  sequence of bounds we derived for $\sqrt{2}*\sqrt{2}$. This is a direct generalization, because the explicit term  $z_k=n$ is equivalent to the bound 
 \[
 n \leq [z_k, z_{k+1}\cdots] < n+1 \ .
 \]
@@ -333,7 +333,7 @@ The general idea (elaborated more fully in section \ref{sec:finalAlgorithm}) is 
 Note that storage of a long sequence of intervals is not a problem for implementation; successive bounds on the same term are always tighter, so there is no need to retain earlier bounds when a new one is obtained. 
 
 \subsection{Extracting Terms}
-We must note that our representation of CF arithmetic makes it \emph{impossible} to simply ask a question like ``what are the first five terms of $z = xy$?" An explicit list of terms can only be relative to a required degree of accuracy $\varepsilon$. Our arithmetic algorithms consume and return theoretically infinite sequences of intervals; extracting a sequence of terms is a separate ``post-processing" step. To obtain terms, we find a prefix of the output interval sequence which is long enough to make the difference between $[z_0 \cdots z_{k-1}, \ell_k]$ and $[z_0 \cdots z_{k-1}, u_k]$ less than $\varepsilon$; then our approximate CF is $[z_0 \cdots z_k]$, where $z_k$ is some integer in the interval $[\ell_k,u_k)$. By convention we may take $z_k = \lfloor u_k \rfloor$. 
+We must note that our representation of CF arithmetic makes it \emph{impossible} to simply ask a question like ``what are the first five terms of $z = xy$?" An explicit list of terms can only be relative to a required degree of accuracy $\varepsilon$. Our arithmetic algorithms consume and return theoretically infinite sequences of intervals; extracting a sequence of terms is a separate ``post-processing" step. To obtain terms, we find a prefix of the output interval sequence which is long enough to make the difference between $[z_0 \cdots z_{k-1}, \ell_k]$ and $[z_0 \cdots z_{k-1}, u_k]$ less than $\varepsilon$; then our approximate CF is $[z_0 \cdots z_k]$, where $z_k$ is some integer in the interval $[\ell_k,u_k)$. We might as well always take $z_k = \lfloor u_k \rfloor$, which is the only integer in the interval if the interval is small. 
 
 In the case of $\sqrt{2}^2$, any accuracy threshold will yield the same result, $z = [2]$.
 
@@ -394,7 +394,7 @@ When we have to ingest the next interval from $x$ or $y$, and we see an ambiguou
 \subsubsection{Taming Large Coefficients}
 If a high degree of accuracy is required, the coefficients of $M$ may grow very large; performing rational arithmetic on arbitrarily large integers will incur a performance penalty. We might be able to take advantage of the fact that we do not require the tightest possible bounds on the next term; the only requirement for correctness is that the bounds converge to the correct value. We might divide every coefficient of $M$ by some large integer $k$, rounding each result up or down in whichever direction slightly widens the range of $M$. We might do the same with intervals whose numerators and denominators are very large. To guarantee convergence, we must never make an adjustment which makes a new bound weaker than the current bound.
 
-Any such decision to ``simplify" $M$ must consider the gap between the upper and lower bounds of $M$; if the gap is large relative to the reciprocals of the coefficients, we might be carrying too many digits. Remember that, with lazy evaluation, all computations are driven by how much accuracy we need; If the gap is small, yet we are still continuing the computation, it means that we need even tighter bounds. In such cases large coefficients might be unavoidable.
+Any such decision to ``simplify" $M$ must consider the gap between the upper and lower bounds of $M$; if the gap is large relative to the reciprocals of the coefficients, we might be carrying too many digits. Remember that, with lazy evaluation, all computations are driven by how much accuracy we need; if the gap is small, yet we are still continuing the computation, it means that we need even tighter bounds. In such cases large coefficients might be unavoidable.
 
 
 \subsection{Computing the range of $M$}\label{sec:ComputeBounds}
