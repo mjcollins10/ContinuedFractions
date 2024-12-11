@@ -330,10 +330,10 @@ The general idea (elaborated more fully in section \ref{sec:finalAlgorithm}) is 
  applies; the first bound applies to $z_0$, and as soon as we encounter a bound which uniquely determines $z_k$ (i.e. an interval with $\lfloor x \rfloor$ the same for all $x$ in the interval), we know that the next bound will apply to $z_{k+1}$. This implies that any 
  finite prefix of the output sequence will determine a finite prefix $[z_0 \cdots z_{k-1}]$ of the actual CF, followed by a bound $[\ell_k,u_k)$ on the tail $[z_k, z_{k+1}\cdots]$. The exact value of the CF is between $[z_0 \cdots z_{k-1}, \ell_k]$ and $[z_0 \cdots z_{k-1}, u_k]$ (where we extend the usual CF notation by allowing a rational number, instead of an integer, as the last term).
 
-Note that storage of a long sequence of intervals is not a problem for implementation; successive bounds on the same term are always tighter, so there is no need to retain earlier bounds when a new one is obtained. 
+Note that storage of a long sequence of intervals is not an issue for implementation; successive bounds on the same term are always tighter, so there is no need to retain earlier bounds when a new one is obtained. 
 
 \subsection{Extracting Terms}
-We must note that our representation of CF arithmetic makes it \emph{impossible} to simply ask a question like ``what are the first five terms of $z = xy$?" An explicit list of terms can only be relative to a required degree of accuracy $\varepsilon$. Our arithmetic algorithms consume and return theoretically infinite sequences of intervals; extracting a sequence of terms is a separate ``post-processing" step. To obtain terms, we find a prefix of the output interval sequence which is long enough to make the difference between $[z_0 \cdots z_{k-1}, \ell_k]$ and $[z_0 \cdots z_{k-1}, u_k]$ less than $\varepsilon$; then our approximate CF is $[z_0 \cdots z_k]$, where $z_k$ is some integer in the interval $[\ell_k,u_k)$. We might as well always take $z_k = \lfloor u_k \rfloor$, which is the only integer in the interval if the interval is small. 
+We must note that our representation of CF arithmetic makes it \emph{impossible} to simply ask a question like ``what are the first five terms of $z = xy$?" An explicit list of terms can only be relative to a required degree of accuracy $\varepsilon$. Our arithmetic algorithms consume and return theoretically infinite sequences of intervals; extracting a finite sequence of terms is a separate ``post-processing" step, carried out only when a numerical approximation is required. To obtain such an approximation, we find a prefix of the output interval sequence which is long enough to make the difference between $[z_0 \cdots z_{k-1}, \ell_k]$ and $[z_0 \cdots z_{k-1}, u_k]$ less than $\varepsilon$; then our approximate CF is $[z_0 \cdots z_k]$, where $z_k$ is some integer in the interval $[\ell_k,u_k)$. We might as well always take $z_k = \lfloor u_k \rfloor$, which is the only integer in the interval if the interval is small. 
 
 In the case of $\sqrt{2}^2$, any accuracy threshold will yield the same result, $z = [2]$.
 
@@ -408,5 +408,113 @@ The range of $M$ subject to the bounds will be the min and max of
 \[
 \left\{ \frac{a'}{e'},\frac{b'}{f'},\frac{c'}{g'},\frac{d'}{h'} \right\}\ .
 \]
+
+
+\section{Solving Quadratic Equations}
+The arithmetic algorithm can be extended to solve quadratic equations with CF coefficients.
+We begin with the special case of computing the square root of a rational number $\alpha$. 
+The key idea is that $\alpha$ is the fixed point of a homographic function, i.e. the solution to
+\[
+y = \frac{\alpha}{y}\ .
+\]
+We thus need to find a continued fraction $y$ which produces $y$ given the initial matrix
+$\left(\begin{smallmatrix}
+0 & p \\
+q & 0
+\end{smallmatrix}\right)$, where $\alpha = \frac{p}{q}$.
+
+As a concrete example, we find $\sqrt{11}$. The first term will be the floor of the fixed point of 
+$M = \left(\begin{smallmatrix}
+0 & 11 \\
+1 & 0
+\end{smallmatrix}\right)$. Of course it is easy to observe in this simple case that $M(3)>3$ and
+$M(4)<4$, so the first term is 3; but we must find a better algorithm than linear search through
+$M(0), M(1), M(2)\cdots$. Such an algorithm exists because any homographic function of the form
+ \[
+ \begin{pmatrix}
+p & q \\
+r & -p
+\end{pmatrix}
+\]
+ is \emph{self-inverse}: i.e. $M(M(y)) = y$. This immediately implies that,
+given any ``initial guess" $\hat{y}$, the fixed point is between $\hat{y}$ and $M(\hat{y})$. Thus we can
+use binary search, starting perhaps from $\hat{y}=1$, to find the desired term in logarithmic time. When $\hat{y} = \lfloor M(\hat{y}) \rfloor$, this is the next term. 
+The self-inverse property is preserved by ingesting and then producing the same term:
+\[
+\mbox{produce}\left(a, \mbox{ingest}\left(a,   \left(\begin{smallmatrix}
+p & q \\
+r & -p
+\end{smallmatrix}\right)\right)     \right) = 
+\left(\begin{smallmatrix}
+ ar-p              & r  \\
+q+2ap-a^2r & p-ar
+\end{smallmatrix}\right)\ .
+\]
+Thus each subsequent iteration can be handled the same way. After $y_0=3$ we obtain
+\[
+M= \begin{pmatrix}
+3 & 1 \\
+2 & -3
+\end{pmatrix}
+\]
+which yields $y_1=3$ since now $M(3)=\frac{10}{3}$. Ingesting and producing 3 leads to
+\[
+M= \begin{pmatrix}
+3 & 2 \\
+1 & -3
+\end{pmatrix}
+\]
+implying $y_2=6$ because $M(6)=\frac{20}{3}$. The next iteration puts us in a loop: ingesting
+and producing 6 takes us back to 
+\[
+ \begin{pmatrix}
+3 & 1 \\
+2 & -3
+\end{pmatrix}
+\]
+proving that $\sqrt{11} = [3, (3,6)]$.
+
+Now we consider how to extract the square root of a real number $x$ given as a continued fraction. We will start 
+with the simpler case in which $x$ expressed as an explicit list of integer terms, before generalizing to an algorithm that
+operates on, and returns, our internal representation of a CF as a list of intervals.
+
+The square root of $x$ is the fixed point $y = \frac{x}{y}$. The matrix $\left(
+\begin{smallmatrix} 
+0 & 1 & 0 & 0\\ 
+0 & 0 & 1 & 0
+\end{smallmatrix}
+\right)$
+is bihomographic, but we can also think of it as a homographic
+matrix $\left(
+\begin{smallmatrix} 
+0 & x \\ 
+1 & 0 
+\end{smallmatrix}
+\right)$ with constant $x$ and variable $y$. More generally let $M_{\mathbf{x}}$ denote the (homographic) matrix with $x$ fixed at $\mathbf{x}$,i.e. if $M=\abcd$ then
+\[
+M_{\mathbf{x}} = \begin{pmatrix}
+                                (a\mathbf{x}+c) & (b\mathbf{x}+d)\\
+                                (e\mathbf{x}+g) & (f\mathbf{x}+h)
+                                \end{pmatrix}\ .
+\]
+As before, we use boldface $\mathbf{x}$ to distinguish a specific input from the symbolic variable. $M_{\infty}$ is the limit $\left(
+\begin{smallmatrix} 
+a & b \\ 
+e & f 
+\end{smallmatrix}
+\right)$.
+
+We must ingest terms of $\mathbf{x}$ until we reach a stage at which the floor of the fixed point does not depend on $x$; in other words, until the floor of the fixpoint is the same when $x=1$ and $x=\infty$. This floor will be the next term of $y$.
+To accomplish this, we use the same binary search as before to find $\hat{y}$, the floor of the fixed point of of $M_1$; 
+then we check whether $\hat{y}$ equals $\lfloor M_{\infty}(\hat{y}) \rfloor$. If so, we ingest $\hat{y}$ and produce $\hat{y}$; if not, we ingest another term of $\mathbf{x}$ and continue.
+
+This works because the matrices $M_x$ will always have the self-inverse property. This is clearly the case with the initial $M=\left(
+\begin{smallmatrix} 
+0 & 1 & 0 & 0\\ 
+0 & 0 & 1 & 0
+\end{smallmatrix}
+\right)$, and a similar computation to shows that the property is preserved when we ingest and produce a term.
+
+%As an example, we compute the fourth root of 2, i.e. the square root of $[1,(2)]$. 
 
 \end{document}  

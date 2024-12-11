@@ -13,7 +13,6 @@ cabal-dev
 .cabal-sandbox/
 cabal.sandbox.config
 *.prof
-*.aux
 *.hp
 *.eventlog
 .stack-work/
@@ -25,4 +24,6 @@ cabal.project.local~
 *.aux
 *.log
 *.pdf
+*.gz
+*.bbl
 
