@@ -50,12 +50,14 @@ where the terms $a_i$ are integers, with $a_i$ positive when $i>0$. It is writte
 properties of continued fractions are very well-known\footnote{\href{https://en.wikipedia.org/wiki/Simple\_continued\_fraction}{https://en.wikipedia.org/wiki/Simple\_continued\_fraction}},
 so here we only remind the reader of some notation we will use:
 \begin{itemize}
-\item A quadratic irrational has a periodic CF expansion. We denote the periodic part by putting it in parentheses, i.e $[1,(2,3)] = [1,2,3,2,3,2,3,\cdots]$.
-\item A rational number has a finite CF expansion $[a_0,a_1\cdots a_k]$. It will be convenient to consider a finite CF as ending with an infinite term $a_{k+1}=\infty$, treating $\frac{1}{\infty}$ as equal to zero.
+\item A quadratic irrational has a periodic CF expansion. We denote the periodic part by putting it in parentheses,
+i.e $[1,(2,3)] = [1,2,3,2,3,2,3,\cdots]$.
+\item A rational number has a finite CF expansion $[a_0,a_1, \cdots a_k]$.
+It will be convenient to consider a finite CF as ending with an infinite term $a_{k+1}=\infty$, treating $\frac{1}{\infty}$ as equal to zero.
 \end{itemize}
  
-Gosper (in an appendix to the famous HAKMEM\footnote{\href{https://dspace.mit.edu/handle/1721.1/6086}{https://dspace.mit.edu/handle/1721.1/6086}} report) 
-developed algorithms for adding, subtracting, multiplying, or dividing two CFs, and for solving quadratics with CF coefficients, getting a CF as the result\footnote{\href{https://perl.plover.com/classes/cftalk/INFO/gosper.html}{https://perl.plover.com/classes/cftalk/INFO/gosper.html}};
+Gosper (in an appendix to the famous HAKMEM report \cite{hakmem}) 
+developed algorithms for adding, subtracting, multiplying, or dividing two CFs, and for solving quadratics with CF coefficients, getting a CF as the result;
 the point of course is that we can do this entirely within the CF representation, making no use of floating-point arithmetic. Here we
 present modified versions of those algorithms which avoid all difficulties with infinite loops; any combination of arithmetic
 computations can be carried out to any required degree of accuracy in a finite number of steps. We have implemented these algorithms
@@ -366,7 +368,7 @@ And the last ranges from $\frac{576}{289}$ to $\frac{289}{144}$, which is about 
 The source of the problem is now clear: we should have $z=[z_0,z_1]=[2,\infty]$, but no finite number of terms can ever tell us that
 $z_0=2$. It is always possible that one input is in fact less than $\sqrt{2}$, so it is always possible that $z<2$ and $z_0=1$.
 
-Our approach to the problem\footnote{For an entirely different approach see David Lester, ``Effective Continued Fractions", in \emph{Proceedings of 15th IEEE Symposium on Computer Arithmetic}, ARITH-15 2001, pp. 163-170.}
+Our approach to the problem (see \cite{Lester01} for an entirely different approach)
 is to separate the internal representation of a CF as a data structure from the mathematical notion of a  sequence of integer terms. The
 internal representation will contain explicit terms (i.e. $z_k=n$) whenever such can be determined, but might also contain arbitrary
 bounds on the tail $[z_k, z_{k+1}\cdots]$, such as the  sequence of bounds we derived for $\sqrt{2}*\sqrt{2}$. This is a direct
@@ -712,8 +714,14 @@ If $q$ is a continued fraction, we can solve (\ref{eq:cfQuadratic}) by starting 
 
 
 \subsection{Square root of a general CF}
-The algorithm is not much different for $\mathbf{x}$ represented as a list of intervals. When we read an ambiguous interval
+The algorithm is not much different for $x$ represented as a list of intervals. When we read an ambiguous interval
 $[x_\ell, x_h)$, we do not change the current matrix; instead we check whether the floors of the fixed points of $M_{x_\ell}$ and
 $M_{x_h}$ are the same. If so, this common value is the next term of $y$.
+
+Note we have assumed that all terms of $x$, including the first term, are greater than or equal to 1. If $x = [0,x_1,x_2,\cdots]$ then $\sqrt{x} = [0,z_0,z_1,\cdots]$ where $z = \sqrt{[x_1,x_2,\cdots]} = \sqrt{1/x}$. 
+
+
+\bibliographystyle{plain}
+\bibliography{cfAlgorithm}
 
 \end{document}  

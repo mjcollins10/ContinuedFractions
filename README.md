@@ -1,5 +1,5 @@
 # ContinuedFractions
-A Haskell implementation of Gosper's algorithm for arithmetic on continued fractions. All computations and comparisons are done on the CF representation with integer arithmetic; conversion to float only happens if we explicitly convert a result. See cfAlgorithm.tex for (many) more details.
+A Haskell implementation of Gosper's algorithm for arithmetic on continued fractions. This implementation avoids all difficulties with infinite loops. All computations and comparisons are done on the CF representation with integer arithmetic; conversion to float only happens if we explicitly convert a result. See cfAlgorithm.tex for (many) more details.
 
 Sample usage:
 
