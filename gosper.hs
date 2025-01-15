@@ -95,7 +95,7 @@ gosper ((x,y),(curM,_))  | low == hi  = ((x,y), (produce hi curM, termToBound hi
 -- always start by ingesting leading terms
 arithCF_ x y initM = iterate gosper ((tail_ x, tail_ y), ( (ingestY (head_ y) (ingestX (head_ x) initM)) , ratRange initM)) 
 -- iterate as long as we do not see an infinite term 
--- extract ouput cf (i.e. list of bounds) from sequence of computational sates
+-- extract ouput cf (i.e. list of bounds) from sequence of computational states
 notInf (_, (_, bn)) = bn /= (infinity%1,infinity%1)
 arithCF initialMatrix x y = map (snd.snd) (takeWhile notInf (arithCF_ x y initialMatrix) )
 
@@ -216,4 +216,44 @@ instance Show CF where
  - TODO: (piCF + 3.14159) works but (piCF + pi) does not;
  - problem is Fractional vs. Floating
 -}
+
+{-
+ - Extract square root of a CF
+ -}
+
+-- compositon operator does not work here! Trouble inferring type
+floor_ x = fromIntegral (floor x)
+ceiling_ x = fromIntegral (ceiling x)
+infty = fromIntegral infinity
+-- Given bihomomorphic M, return the homomorphic M_n
+-- which we get by fixing x=n
+fixvar [[a,b,c,d],[e,f,g,h]] x = if x == infty then [[a,b], [e,f]] else [[a*x+c, b*x+d], [e*x+g, f*x+h]]
+
+-- evaluate a homomorphic matrix as a rational function
+evalMat     [[p,q], [r,s]] y = (p*y+q)/(r*y+s)
+evalMatFlr  [[p,q], [r,s]] y = if y == infty then floor_   (p/r) else floor_   ((p*y+q)/(r*y+s))
+evalMatCeil [[p,q], [r,s]] y = if y == infty then ceiling_ (p/r) else ceiling_ ((p*y+q)/(r*y+s))
+
+-- get floor of fixed point of *self-inverse* homographic M;
+-- i.e. y such that y equals either floor or cieling of M(y)
+-- make use of fact that, for any y, fixpoint is between y and M(y)
+-- (if y, M(y) both positive)
+-- so we can use binary search
+-- NB: binary search must be limited to y greater than root of denominator: y > -s/r
+hmat a b c = [[a,b],[c,-a]] -- for testing
+fixpoint [[p,q],[r,s]] = fixpoint_ [[p,q],[r,s]] guess
+                          where firstGuess = max 1 (ceiling_ (-s/r)) 
+                                guess = if firstGuess == (-s/r) then (firstGuess + 1) else firstGuess
+fixpoint_ mat guess | mfloor == guess || mceil == guess = mfloor
+                    | mval == guess + 1 || mval == guess - 1 = min mval guess
+                    | otherwise = fixpoint_ mat newguess 
+                        where mfloor = evalMatFlr mat guess
+                              mceil  = evalMatCeil mat guess
+                              mval   = evalMat mat guess
+                              newguess = if mfloor > guess then ceiling_ ((guess + mceil)/2) else floor_ ((guess + mfloor)/2) -- new guess halfway between
+                              -- second condition prevents infinite loop on, for example,
+                              -- mat = [[0,2],[1,0]] which otherwise would cycle between
+                              -- guess == 1 and guess == 2
+
+
 
