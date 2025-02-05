@@ -4,7 +4,7 @@
  -}
 
 import Data.Ratio -- get (%) operator for rational arithmetic
-
+isTerm (lo,hi) = (denominator lo == 1) && (denominator hi == 1) && ((numerator hi == 1 + numerator lo) || (numerator lo == infinity))
 termToBound n =  (n%1, (n+1)%1) -- generalized internal representation of CF term
 epsDefault = 1 % 2^32 -- default threshold for 'equality'
 infinity :: Integer
@@ -14,7 +14,7 @@ pmInfinity = (-infinity%1, infinity%1)
 
 -- range_ is min,max of *integer part* of bihomomorphic matrix (axy + bx +cy + d)/(exy + fx + gy + h)
 -- as x,y vary independently from *zero* to infinity
--- 'normally' this is min,max of {a/e, b/f, c/g, d/h}
+-- with no sign change in denominator this is min,max of {a/e, b/f, c/g, d/h}
 -- ratRange_ is min,max of bihomomorphic matrix
 openceil n d = (div n d) + if (mod n d) == 0 then -1 else 0 -- if asymptotic upper bound is k, integer part is <= k-1
 getmin n d = if d /= 0 then (div n d)      else (signum n)*infinity 
@@ -42,7 +42,6 @@ ratRange (matrix, boundX, boundY) = ratRange_ (map shift matrixWithBounds)
 -- if we know that the floor of x equals n, we can make the 
 -- substitution x <- n + 1/x (and now x represents the next term of output);
 -- otherwise just update bounds, leaving matrix the same; new bound will always be tighter
-isTerm (lo,hi) = (denominator lo == 1) && (denominator hi == 1) && ((numerator hi == 1 + numerator lo) || (numerator lo == infinity))
 ingestX termOrBound (matrix,boundX,boundY) | isTerm termOrBound = (substituteX termOrBound matrix , nobound, boundY)
                                            | otherwise          = (matrix, termOrBound, boundY)
 
@@ -85,19 +84,15 @@ tail_ xs = tail xs
 -- one iteration of Gosper's algorithm:
 -- produce the next term of output if we can; otherwise read both x and y and produce range
 -- current state is ( (unread part of x, unread part of y),
---                    ((current bihomomorphic matrix, bound on x, bound on y), last output) )
+--                    (current bihomomorphic matrix, bound on x, bound on y) )
 -- ingesting term changes matrix and sets bound to [1,Inf]
 -- ingesting bound does nothing to matrix, just updates bound
-gosper ((x,y),(curM,_))  | low == hi  = ((x,y), (produce hi curM, termToBound hi))  -- produce another term of output 
-                         | otherwise  = ((tail_ x,tail_ y), (ingestY (head_ y) (ingestX (head_ x) curM), ratRange curM)) -- get next x,y
+gosper x y curM  | low == hi  = (termToBound hi):(gosper x y (produce hi curM))   -- produce another term of output 
+                 | otherwise  = (ratRange curM):(gosper (tail_ x) (tail_ y) (ingestY (head_ y) (ingestX (head_ x) curM))) -- get next x,y
                               where (low,hi) = range curM
 
--- always start by ingesting leading terms
-arithCF_ x y initM = iterate gosper ((tail_ x, tail_ y), ( (ingestY (head_ y) (ingestX (head_ x) initM)) , ratRange initM)) 
--- iterate as long as we do not see an infinite term 
--- extract ouput cf (i.e. list of bounds) from sequence of computational states
-notInf (_, (_, bn)) = bn /= (infinity%1,infinity%1)
-arithCF initialMatrix x y = map (snd.snd) (takeWhile notInf (arithCF_ x y initialMatrix) )
+notInf bn = bn /= (infinity%1,infinity%1)
+arithCF_ initialMatrix x y = (takeWhile notInf (gosper x y initialMatrix) )
 
 {-
  - turn continued fractions into a type with operator overloading
@@ -111,10 +106,10 @@ newtype CF = MakeCF_ { getCF_ :: [(Ratio Integer, Ratio Integer)] }
 makeCF terms = MakeCF_ (map termToBound terms)
 
 -- matrix initializations for arithmetic
-addCF_ = arithCF ( [[0,1,1,0],[0,0,0,1]],  pmInfinity, pmInfinity )
-subCF_ = arithCF ( [[0,1,-1,0],[0,0,0,1]], pmInfinity, pmInfinity )
-mulCF_ = arithCF ( [[1,0,0,0],[0,0,0,1]],  pmInfinity, pmInfinity )
-divCF_ = arithCF ( [[0,1,0,0],[0,0,1,0]],  pmInfinity, pmInfinity )
+addCF_ = arithCF_ ( [[0,1,1,0],[0,0,0,1]],  pmInfinity, pmInfinity )
+subCF_ = arithCF_ ( [[0,1,-1,0],[0,0,0,1]], pmInfinity, pmInfinity )
+mulCF_ = arithCF_ ( [[1,0,0,0],[0,0,0,1]],  pmInfinity, pmInfinity )
+divCF_ = arithCF_ ( [[0,1,0,0],[0,0,1,0]],  pmInfinity, pmInfinity )
 
 instance Num CF where
   fromInteger n  = makeCF [n]
@@ -225,35 +220,47 @@ instance Show CF where
 floor_ x = fromIntegral (floor x)
 ceiling_ x = fromIntegral (ceiling x)
 infty = fromIntegral infinity
--- Given bihomomorphic M, return the homomorphic M_n
--- which we get by fixing x=n
-fixvar [[a,b,c,d],[e,f,g,h]] x = if x == infty then [[a,b], [e,f]] else [[a*x+c, b*x+d], [e*x+g, f*x+h]]
+-- Given bihomomorphic M, return the homomorphic M_x
+-- which we get by fixing x=x
+lowestterms [[p,q],[r,s]] = [[div p c, div q c], [div r c, div s c]]
+                              where c = gcd (gcd p q) (gcd r s)
+fixvar [[a,b,c,d],[e,f,g,h]] x = if x == (infinity%1) then [[a,b], [e,f]] 
+                                                      else lowestterms [[a*xn+c*xd, b*xn+d*xd], [e*xn+g*xd, f*xn+h*xd]]
+                                   where (xn, xd) = (numerator x, denominator x)
 
 -- evaluate a homomorphic matrix as a rational function
-evalMat     [[p,q], [r,s]] y = (p*y+q)/(r*y+s)
-evalMatFlr  [[p,q], [r,s]] y = if y == infty then floor_   (p/r) else floor_   ((p*y+q)/(r*y+s))
-evalMatCeil [[p,q], [r,s]] y = if y == infty then ceiling_ (p/r) else ceiling_ ((p*y+q)/(r*y+s))
+evalMat [[p,q],[r,s]] y = (p*y+q)%(r*y+s)
 
 -- get floor of fixed point of *self-inverse* homographic M;
 -- i.e. y such that y equals either floor or cieling of M(y)
 -- make use of fact that, for any y, fixpoint is between y and M(y)
--- (if y, M(y) both positive)
--- so we can use binary search
+-- (if y, M(y) both positive), so we can use binary search
 -- NB: binary search must be limited to y greater than root of denominator: y > -s/r
 hmat a b c = [[a,b],[c,-a]] -- for testing
-fixpoint [[p,q],[r,s]] = fixpoint_ [[p,q],[r,s]] guess
-                          where firstGuess = max 1 (ceiling_ (-s/r)) 
-                                guess = if firstGuess == (-s/r) then (firstGuess + 1) else firstGuess
+fixpoint [[p,q],[r,s]] = fixpoint_ [[p,q],[r,s]] firstGuess
+                          where firstGuess = if r > 0 then max 1 (1 + ceiling (-s%r)) else 1 
 fixpoint_ mat guess | mfloor == guess || mceil == guess = mfloor
-                    | mval == guess + 1 || mval == guess - 1 = min mval guess
+                    -- handle annoying case where mval is actually an integer; otherwise
+                    -- for instance mat = [[0,2],[1,0]] cycles between guess == 1,2
+                    | mvalDen==1 && (mvalNum == guess + 1 || mvalNum == guess - 1) = min mvalNum guess
                     | otherwise = fixpoint_ mat newguess 
-                        where mfloor = evalMatFlr mat guess
-                              mceil  = evalMatCeil mat guess
-                              mval   = evalMat mat guess
-                              newguess = if mfloor > guess then ceiling_ ((guess + mceil)/2) else floor_ ((guess + mfloor)/2) -- new guess halfway between
-                              -- second condition prevents infinite loop on, for example,
-                              -- mat = [[0,2],[1,0]] which otherwise would cycle between
-                              -- guess == 1 and guess == 2
+                        where mval   = evalMat mat guess
+                              mfloor = floor mval
+                              mceil  = ceiling mval
+                              (mvalNum, mvalDen) = (numerator mval, denominator mval)
+                              newguess = if mfloor > guess then ceiling ((guess + mceil)%2) 
+                                          else floor ((guess + mfloor)%2) -- new guess halfway between
 
-
+-- ingest first term of x before doing anyting
+cfSqrt (MakeCF_ x) =  makeCF $ cfSqrtIter ( ingestX (head_ x) ( [[0,1,0,0], [0,0,1,0]], nobound, nobound ) ) (tail_ x) 
+-- advance to next stage of square-root computation
+-- if floor of fixed point of mat does not depend on x, we can get next
+-- term of output; else ingest another term of x into mat
+cfSqrtIter mat x | matHasFixpoint = y:(cfSqrtIter (produce y (ingestY (termToBound y) mat)) x) 
+                 | otherwise      = cfSqrtIter (ingestX (head_ x) mat) (tail_ x)
+                      where y   = fixpoint (fixvar m xLo)
+                            yHi = fixpoint (fixvar m xHi) -- change to just check if y is fixpoint
+                            matHasFixpoint = y == yHi
+                            (m, boundX, boundY) = mat
+                            (xLo, xHi) = boundX
 

@@ -161,8 +161,8 @@ terms of $x$. If we proceed as in the examples above, we will compute the CF rep
 expansion of $y$, ending with a production that subtracts the final term $y_k$ from the expression $\frac{y_k}{1}$; this leads to
 $M=\left(\begin{smallmatrix}0 & 1 \\ 0 & 0\end{smallmatrix}\right)$, which we may read as infinity.
 
-\begin{figure}
-\begin{algorithmic}\label{fig:oneCFarith}
+\begin{figure}\label{fig:oneCFarith}
+\begin{algorithmic}
 \STATE{$i \gets 0$} \COMMENT{index of the next term of $x$ we will read}
 \STATE{$j \gets 0$} \COMMENT{index of the next term of $y$ we will generate}
 \STATE{$M \gets \pqrs$} \COMMENT{the initial matrix, i.e. the expression whose CF we will compute}
@@ -310,8 +310,8 @@ with the analogous
 \end{equation} 
 for the result of substituting $x \leftarrow s + 1/x$.
 
-\begin{figure}
-\begin{algorithmic}\label{fig:twoCFarithPrelim}
+\begin{figure}\label{fig:twoCFarithPrelim}
+\begin{algorithmic}
 \STATE{$i \gets 0$} \COMMENT{index of the next term of $x$ and $y$ we will read}
 \STATE{$j \gets 0$} \COMMENT{index of the next term of $z$ we will generate}
 \STATE{$M \gets \abcd$} \COMMENT{the initial matrix, i.e. the expression whose CF we will compute}
@@ -430,8 +430,8 @@ denote this interval $\rho\left(\abcd, I_x, I_y\right)$.
 These bounds are easily computed, see section (\ref{sec:ComputeBounds}).
 To retain unlimited accuracy, the bounds must be computed with exact rational arithmetic.
 
-\begin{figure}
-\begin{algorithmic}\label{fig:twoCFarith}
+\begin{figure}\label{fig:twoCFarith}
+\begin{algorithmic}
 \STATE{}\COMMENT{input $x,y$: CFs represented as lists of intervals}
 \STATE{}\COMMENT{input $M$: bihomomorphic matrix}
 \STATE{}\COMMENT{output $z$: CF expansion of $M(x,y)$ represented as list of intervals}
@@ -501,9 +501,9 @@ Now $x$ goes from $x_{\ell}$ to $x_u$ as $x'$ goes from 0 to infinity, similarly
 \end{itemize}
 The range of $M$ subject to the bounds will be the min and max of 
 \[
-\left\{ \frac{a'}{e'},\frac{b'}{f'},\frac{c'}{g'},\frac{d'}{h'} \right\}\ .
+\left\{ \frac{a'}{e'},\frac{b'}{f'},\frac{c'}{g'},\frac{d'}{h'} \right\}
 \]
-
+(assuming no sign change in the denominator as $x'$ goes from 0 to infinity).
 
 \section{Solving Quadratic Equations}
 \subsection{Square root of a rational number}
@@ -523,19 +523,20 @@ As a concrete example, we find $\sqrt{11}$. The first term will be the floor of 
 $M = \left(\begin{smallmatrix}
 0 & 11 \\
 1 & 0
-\end{smallmatrix}\right)$. Of course it is easy to observe in this case that $M(3)>3$ and
+\end{smallmatrix}\right)$. It is easy to observe in this case that $M(3)>3$ and
 $M(4)<4$, so the first term is $y_0=3$; but we must find a better algorithm than linear search through
-$M(1), M(2), M(3)\cdots$. Such an algorithm exists because any homographic function of the form
+$M(1), M(2), M(3)\cdots$. We can make use of the fact that any homographic function of the form
  \[
- \begin{pmatrix}
+ M = \begin{pmatrix}
 p & q \\
 r & -p
 \end{pmatrix}
 \]
  is \emph{self-inverse}: i.e. $M(M(y)) = y$. This immediately implies that,
-given any ``initial guess" $\hat{y}$, the fixed point is between $\hat{y}$ and $M(\hat{y})$. So we can
-use binary search, starting perhaps from $\hat{y}=1$, to find the desired term in logarithmic time.
-When $\hat{y} = \lfloor M(\hat{y}) \rfloor$ or $\hat{y} = \lceil M(\hat{y}) \rceil$, this common value is the next term of $y$. 
+given any $\hat{y}$, the fixed point is between $\hat{y}$ and $M(\hat{y})$.
+So we can use binary search to find the desired term.
+Search can begin with the smallest positive integer greater than the root of the denominator, $\frac{p}{r}$.
+In fact, the self-inverse property implies the existence of an integer $\hat{y}$ such that $\hat{y} = \lfloor M(\hat{y}) \rfloor$ or $\hat{y} = 1 + \lfloor M(\hat{y}) \rfloor$; in either case $\lfloor M(\hat{y}) \rfloor$ is the next term of $y$. 
 The self-inverse property is preserved by ingesting and then producing the same term:
 \[
 \mbox{produce}\left(\hat{y}, \mbox{ingest}\left(\hat{y},   \left(\begin{smallmatrix}
@@ -610,9 +611,9 @@ Starting from $\left(
 0 & 0 & 1 & 0
 \end{smallmatrix}
 \right)$, we must ingest terms of $\mathbf{x}$ until we reach a stage at which the floor of the fixed point does not depend on $x$;
-in other words, until the floor of the fixpoint is the same when $x=1$ and $x=\infty$. This floor will be the next term of $y$.
-To find the next term, we first use the same binary search as before to get $\hat{y}$, the floor of the fixed point of of $M_1$; 
-then we check whether $\hat{y}$ equals $\lfloor M_{\infty}(\hat{y}) \rfloor$ or $\lceil M_{\infty}(\hat{y}) \rceil$. If so, we ingest
+in other words, until the floor of the fixed point is the same when $x=1$ and $x=\infty$. This floor will be the next term of $y$.
+To find the next term, we first use binary searchto get $\hat{y}$, the floor of the fixed point of of $M_1$; 
+then we check whether $\hat{y}$ is also the floor of the fixed point of  $M_{\infty}$. If so, we ingest
 $\hat{y}$ and produce $\hat{y}$; if not, we ingest another term of $\mathbf{x}$ and continue.
 
 This works because the matrices $M_x$ will always have the self-inverse property. Such is clearly the case with the initial matrix, and a
@@ -659,8 +660,8 @@ M = \frac{13xy+5x+5y+2}{7xy-13x+5y-5}
 which tells us that $y_2=3$: $M_1(3)=\frac{61}{18}$ and $M_\infty(4)=\frac{19}{5}$. 
 The first few terms of $\sqrt[4]{2}$ are $1.18921\cdots = [1,5,3,1,1,40,5,\cdots]$.
 
-\begin{figure}
-\begin{algorithmic}\label{fig:sqrtCF}
+\begin{figure}\label{fig:sqrtCF}
+\begin{algorithmic}
 \STATE{}\COMMENT{input $x$: CF represented as list of intervals}
 \STATE{}\COMMENT{output $y$: CF expansion of $\sqrt{x}$ represented as list of intervals}
 \STATE{$i \gets 0$} \COMMENT{index of the next element of $x$ we will read}
@@ -673,22 +674,26 @@ The first few terms of $\sqrt[4]{2}$ are $1.18921\cdots = [1,5,3,1,1,40,5,\cdots
 \end{smallmatrix}
 \right)$} \COMMENT{solve $y = \frac{x}{y}$}
 \WHILE {$M \neq \infty$}
-    \STATE{}\COMMENT{read input}
-     \IF{$x_i = [a,b)$ is ambiguous}
-         \STATE{$(x_{\ell},x_h) \gets (a,b)$}
-     \ELSE
-         \STATE{$M \gets \mbox{ingest\_x}( x_i, M)$}
-         \STATE{$(x_{\ell},x_h) \gets [1,\infty)$}
-     \ENDIF
-          \STATE{$i \gets i+1$}
+  
+   \WHILE{floor of fixed point of $M_{x_h}$ does not equal floor of fixed point of $M_{x_\ell}$}
+      \STATE{}\COMMENT{read input}
+       \IF{$x_i = [a,b)$ is ambiguous}
+           \STATE{$(x_{\ell},x_h) \gets (a,b)$}
+       \ELSE
+           \STATE{$M \gets \mbox{ingest\_x}( x_i, M)$}
+           \STATE{$(x_{\ell},x_h) \gets [1,\infty)$}
+       \ENDIF
+            \STATE{$i \gets i+1$}
+       \ENDWHILE
      
-     \STATE{}\COMMENT{produce output if we can}
-     \STATE{$\hat{y} \gets$ floor of fixed point of $M_{x_{\ell}}$} \COMMENT{found with binary search}
-     \IF{floor of fixed point of $M_{x_h}$ equals $\hat{y}$}
+  \WHILE{floor of fixed point of $M_{x_h}$ equals floor of fixed point of $M_{x_\ell}$}   
+     \STATE{}\COMMENT{produce output}
+     \STATE{$\hat{y} \gets$ floor of fixed point of $M_{x_{\ell}}$}
         \STATE{$y_j \gets \hat{y}$}
         \STATE{$j \gets j+1$}
         \STATE{$M \gets \mbox{produce}(\hat{y}, \mbox{ingest\_y}( \hat{y}, M))$}
-     \ENDIF
+  \ENDWHILE
+     
 \ENDWHILE
 \end{algorithmic}
 \caption{Algorithm for square root of a CF}
