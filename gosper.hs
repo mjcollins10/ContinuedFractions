@@ -4,8 +4,9 @@
  -}
 
 import Data.Ratio -- get (%) operator for rational arithmetic
+termToBound n =  (n%1, (n+1)%1) -- generalized internal representation of CF term n
+-- a bound of the form (n,n+1) gives us n as the next CF term
 isTerm (lo,hi) = (denominator lo == 1) && (denominator hi == 1) && ((numerator hi == 1 + numerator lo) || (numerator lo == infinity))
-termToBound n =  (n%1, (n+1)%1) -- generalized internal representation of CF term
 epsDefault = 1 % 2^32 -- default threshold for 'equality'
 infinity :: Integer
 infinity = 999999999
@@ -216,26 +217,23 @@ instance Show CF where
  - Extract square root of a CF
  -}
 
--- compositon operator does not work here! Trouble inferring type
-floor_ x = fromIntegral (floor x)
-ceiling_ x = fromIntegral (ceiling x)
-infty = fromIntegral infinity
--- Given bihomomorphic M, return the homomorphic M_x
--- which we get by fixing x=x
+-- Given bihomomorphic M, return the homomorphic M_r
+-- which we get by fixing x=r
 lowestterms [[p,q],[r,s]] = [[div p c, div q c], [div r c, div s c]]
                               where c = gcd (gcd p q) (gcd r s)
-fixvar [[a,b,c,d],[e,f,g,h]] x = if x == (infinity%1) then [[a,b], [e,f]] 
-                                                      else lowestterms [[a*xn+c*xd, b*xn+d*xd], [e*xn+g*xd, f*xn+h*xd]]
+fixvar [[a,b,c,d],[e,f,g,h]] x | [[a,b],[e,f]] == [[0,0],[0,0]] = [[c,d],[g,h]] -- x terms already gone
+                               | x == (infinity%1) = [[a,b], [e,f]] -- limit as x -> \infty
+                               | otherwise = lowestterms [[a*xn+c*xd, b*xn+d*xd], [e*xn+g*xd, f*xn+h*xd]]
                                    where (xn, xd) = (numerator x, denominator x)
 
 -- evaluate a homomorphic matrix as a rational function
 evalMat [[p,q],[r,s]] y = (p*y+q)%(r*y+s)
 
--- get floor of fixed point of *self-inverse* homographic M;
--- i.e. y such that y equals either floor or cieling of M(y)
+-- binary search to get floor of fixed point of *self-inverse* homographic M;
+-- i.e. find y such that y equals either floor M(y) or 1 + floor M(y);
+-- then the next term is floor M(y)
 -- make use of fact that, for any y, fixpoint is between y and M(y)
--- (if y, M(y) both positive), so we can use binary search
--- NB: binary search must be limited to y greater than root of denominator: y > -s/r
+-- search limited to where M(y) > 0: y > -s/r
 hmat a b c = [[a,b],[c,-a]] -- for testing
 fixpoint [[p,q],[r,s]] = fixpoint_ [[p,q],[r,s]] firstGuess
                           where firstGuess = if r > 0 then max 1 (1 + ceiling (-s%r)) else 1 
@@ -251,12 +249,14 @@ fixpoint_ mat guess | mfloor == guess || mceil == guess = mfloor
                               newguess = if mfloor > guess then ceiling ((guess + mceil)%2) 
                                           else floor ((guess + mfloor)%2) -- new guess halfway between
 
--- ingest first term of x before doing anyting
+-- will always need to ingest first term of x, so just do it
 cfSqrt (MakeCF_ x) =  makeCF $ cfSqrtIter ( ingestX (head_ x) ( [[0,1,0,0], [0,0,1,0]], nobound, nobound ) ) (tail_ x) 
 -- advance to next stage of square-root computation
 -- if floor of fixed point of mat does not depend on x, we can get next
 -- term of output; else ingest another term of x into mat
-cfSqrtIter mat x | matHasFixpoint = y:(cfSqrtIter (produce y (ingestY (termToBound y) mat)) x) 
+cfSqrtIter mat x | all (==0) (m!!1) = [] -- have reached end of computing rational result
+                 | y <= 0 = []
+                 | matHasFixpoint = y:(cfSqrtIter (produce y (ingestY (termToBound y) mat)) x) 
                  | otherwise      = cfSqrtIter (ingestX (head_ x) mat) (tail_ x)
                       where y   = fixpoint (fixvar m xLo)
                             yHi = fixpoint (fixvar m xHi) -- change to just check if y is fixpoint

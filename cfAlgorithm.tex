@@ -284,8 +284,9 @@ substitutions $\hat{x} = x-1, \hat{y} = y-1$, and consider
 as $\hat{x}, \hat{y}$ range independently from \emph{zero} to infinity. If the denominator cannot be zero, the floor is always
 between the minimum and maximum of
 \[
-\left\{ \frac{a}{e},\frac{a+b}{e+f},\frac{a+c}{e+g},\frac{a+b+c+d}{e+f+g+h} \right\}\ .
+\left\{ \frac{a}{e},\frac{a+b}{e+f},\frac{a+c}{e+g},\frac{a+b+c+d}{e+f+g+h} \right\}
 \]
+where we may ignore fractions with numerator and denominator both zero.
 
 When the floor (i.e. the next term of output) is known, we produce output $z_j=k$ and the next bihomographic expression is
 \[
@@ -295,7 +296,7 @@ so we define the corresponding operation on matrices
 \begin{equation}
 \mbox{produce}(k, \abcd) = \bihomographic{e}{f}{g}{h}{(a-ke)}{(b-kf)}{(c-kg)}{(d-kh)}
 \end{equation}
- If the floor is not determined, we must narrow its range by ingesting the next term of either $x$ or $y$.
+ If the floor is not determined (in particular when the denominator might be zero), we must narrow the range by ingesting the next term of either $x$ or $y$.
  If we use $y = [s,y_{k+1},y_{k+2}\cdots]$, we make the substitution $y \leftarrow s + 1/y$ to get
 \[
 \frac{(sa+b)xy + ax + (sc+d)y + c}{(se+f)xy + ex + (sg+h)y + g}
@@ -309,6 +310,14 @@ with the analogous
 \mbox{ingest\_x}(s, \abcd) = \bihomographic{(sa+c)}{(sb+d)}{a}{b} {(ae+g)}{(af+h)}{e}{f}
 \end{equation} 
 for the result of substituting $x \leftarrow s + 1/x$.
+If one or both inputs are rational, we will eventually ingest infinity, which we define by taking the limit:
+\begin{equation}
+\mbox{ingest\_y}(\infty, \abcd) = \bihomographic{0}{a}{0}{c}{0}{e}{0}{g}
+\end{equation}
+\begin{equation}
+\mbox{ingest\_x}(\infty, \abcd) = \bihomographic{0}{0}{a}{b} {0}{0}{e}{f}
+\end{equation} 
+
 
 \begin{figure}\label{fig:twoCFarithPrelim}
 \begin{algorithmic}
@@ -331,7 +340,7 @@ for the result of substituting $x \leftarrow s + 1/x$.
 \end{figure}
 
 We now have a preliminary algorithm for arithmetic; this will in fact require substantial modification, but we include it as a summary
-of the key ideas. It is not much different from the single-CF case. Computation of $x+y, x-y,xy$, and $x/y$ begin with matrices
+of the key ideas. It is not much different from the single-CF case. Computations of $x+y, x-y,xy$, and $x/y$ begin with matrices
 $\bihomographic{0}{1}{1}{0}{0}{0}{0}{1}, \bihomographic{0}{1}{-1}{0}{0}{0}{0}{1},
 \bihomographic{1}{0}{0}{0}{0}{0}{0}{1}$ and $\bihomographic{0}{1}{0}{0}{0}{0}{1}{0}$.
 
@@ -344,9 +353,9 @@ that division is the hardest arithmetic operation, and the definition of continu
 
 
 \subsection{Failure to Converge}
-Algorithm (\ref{fig:twoCFarithPrelim}) demonstrates the basic idea of CF arithmetic, but is insufficient because it can fail to converge;
+Our preliminary algorithm demonstrates the basic idea of CF arithmetic, but is insufficient because it can fail to converge;
 we might endlessly ingest terms of both $x$ and $y$ without ever obtaining a bihomographic expression whose floor is known. The
-simplest case is multiplying $\sqrt{2}$ by itself. The first iteration, ingesting 1 from $x$ and from $y$, gives
+simplest case is multiplying $\sqrt{2} = [1,(2)]$ by itself. The first iteration, ingesting 1 from $x$ and from $y$, gives
 \begin{equation*}
 z = \sqrt{2}*\sqrt{2} = [z_0,z_1, \cdots] = \bihom{1}{1}{1}{1}{1}{0}{0}{0} \ .
 \end{equation*}
@@ -503,7 +512,7 @@ The range of $M$ subject to the bounds will be the min and max of
 \[
 \left\{ \frac{a'}{e'},\frac{b'}{f'},\frac{c'}{g'},\frac{d'}{h'} \right\}
 \]
-(assuming no sign change in the denominator as $x'$ goes from 0 to infinity).
+assuming no sign change in the denominator as $x'$ goes from 0 to infinity; fractions with numerator and denominator both $0$ can be ignored.
 
 \section{Solving Quadratic Equations}
 \subsection{Square root of a rational number}
@@ -673,8 +682,7 @@ The first few terms of $\sqrt[4]{2}$ are $1.18921\cdots = [1,5,3,1,1,40,5,\cdots
 0 & 0 & 1 & 0
 \end{smallmatrix}
 \right)$} \COMMENT{solve $y = \frac{x}{y}$}
-\WHILE {$M \neq \infty$}
-  
+\WHILE {$M \neq \infty$}  
    \WHILE{floor of fixed point of $M_{x_h}$ does not equal floor of fixed point of $M_{x_\ell}$}
       \STATE{}\COMMENT{read input}
        \IF{$x_i = [a,b)$ is ambiguous}
@@ -689,6 +697,10 @@ The first few terms of $\sqrt[4]{2}$ are $1.18921\cdots = [1,5,3,1,1,40,5,\cdots
   \WHILE{floor of fixed point of $M_{x_h}$ equals floor of fixed point of $M_{x_\ell}$}   
      \STATE{}\COMMENT{produce output}
      \STATE{$\hat{y} \gets$ floor of fixed point of $M_{x_{\ell}}$}
+        \IF{$\hat{y}<1$}
+          \STATE{$y_j \gets \infty$}
+          \STATE{exit}\COMMENT{see section (\ref{sec:rational})}
+        \ENDIF
         \STATE{$y_j \gets \hat{y}$}
         \STATE{$j \gets j+1$}
         \STATE{$M \gets \mbox{produce}(\hat{y}, \mbox{ingest\_y}( \hat{y}, M))$}
@@ -700,6 +712,52 @@ The first few terms of $\sqrt[4]{2}$ are $1.18921\cdots = [1,5,3,1,1,40,5,\cdots
 \end{figure}
 
 
+\subsection{Square root of a general CF}
+The algorithm is not fundamentally different for $x$ represented as a list of intervals. When we read an ambiguous interval
+$[x_\ell, x_h)$, we do not change $M$; instead we check whether the floors of the fixed points of $M_{x_\ell}$ and
+$M_{x_h}$ are the same. If so, this common value is the next term of $y$.
+
+To simplify the algorithm we have assumed that all terms of $x$, including the first term, are greater than or equal to 1. The case of $x_0=0$ is easily handled: if $x = [0,x_1,x_2,\cdots]$ then $\sqrt{x} = [0,z_0,z_1,\cdots]$ where $z = \sqrt{[x_1,x_2,\cdots]} = \sqrt{1/x}$.
+
+
+\subsection{Algorithm Termination}
+It is possible for the algorithm to stall, reading infinitely many terms from $\mathbf{x}$ without ever determining the next term of $y$.
+Suppose that the true fixed point of $M_\mathbf{x}$ is an integer $k$; as we ingest more terms from $\mathbf{x}$, the fixed points of $M_{x_\ell}$ and $M_{x_h}$ will both approach  $k$, but the floor of one fixed point will be $k$ and the floor of the other will be $k-1$.
+We cannot guarantee that a finite number of terms of $\mathbf{x}$ will ever determine $y_i=k$.
+This would happen, for instance, if we tried to compute the square root of 4, if 4 were given not as $x=[4,\infty]$, but instead as an infinite sequence of ambiguous terms approaching 4.
+
+The solution is the same as in the case of arithmetic; we can output ambiguous terms of $y$. Let $\phi(M)$ denote the fixed point of $M$; then we can output $y_i = (\phi(M_{x_\ell}), \phi(M_{x_h})$.
+
+Note that this problem cannot arise if $\mathbf{x}$ is irrational, since the fixed point will never be integral; $\phi(M_1)$ and $\phi(M_\infty)$ will approach a non-integral limit, and after a finite number of steps, the floors of the fixed points will be the same.
+
+
+\subsection{Rational Square Roots}\label{sec:rational}
+There is one further implementation detail that arises in the case where $y$ is in fact a rational number,
+i.e. a finite continued fraction. Suppose we apply our algorithm to get the square root of 9, i.e. $x = [9,\infty]$.
+After making the initial substitution $x \leftarrow 9 + \frac{1}{x}$, then ingesting/producing $y_0=3$,
+we will be seeking the fixed point
+\begin{equation}\label{eq:sqrt9}
+y = \frac{3xy+x}{-3x+y}\ .
+\end{equation}
+Note that (\ref{eq:sqrt9}) is simply a rearrangement of $3+\frac{1}{y} = \sqrt{9+\frac{1}{x}}$, i.e. of
+\[
+3+\frac{1}{y} = \frac{9+\frac{1}{x}}{3+\frac{1}{y}}\ .
+\]
+Written this way it is obvious that $y$ approaches infinity as $x$ approaches infinity. But if we now ingest $x=\infty$, we will be trying to solve
+\[
+y = \frac{3y+1}{-3}\ .
+\]
+We certainly find that the fixed points of $M_1$ and $M_\infty$ are the same! With the variable $x$ gone entirely, both matrices are just
+$\left(
+\begin{smallmatrix} 
+3 & 1 \\ 
+0 & -3 
+\end{smallmatrix}
+\right)$. But the fixed point is $y=-1/6$, suggesting that $y_1$ should be the floor, $-1$. What has gone wrong? Our definition of $M_\infty$ is meant to be the limit of $M_x$ as $x \to \infty$; but the definition implicitly assumes that $y$ is finite, so the terms $cy+d$ and $gy+h$ go away. The matrix is wrong when $y$ goes to infinity along with $x$, and the invalid result (i.e. $y_i \leq 0$) reveals this; so we can terminate the computation with $y_1 = \infty$.
+
+We emphasize that checking for an invalid output $y_i < 1$ is a sufficient condition for termination with $y_i=\infty$; if we get a valid term $y_i \geq 1$, this must be the correct next output term.
+
+
 \subsection{Quadratic equations}
 A quadratic equation can be written as the fixed point of a self-inverse homographic function:
 $
@@ -709,21 +767,13 @@ is equivalent to
 \begin{equation}\label{eq:cfQuadratic}
 y = \frac{-qy - 2r}{2py + q}\ .
 \end{equation}
-If $q$ is a continued fraction, we can solve (\ref{eq:cfQuadratic}) by starting with $M= \left(
+If $q$ is given as a continued fraction, we can solve (\ref{eq:cfQuadratic}) by starting with $M= \left(
 \begin{smallmatrix} 
 -x & -2r \\ 
 2p & x 
 \end{smallmatrix}
 \right)$ and finding the fixed point, ingesting terms of  $q=\mathbf{x}$. The cases of $p$ or $r$ as continued fractions are similar.
-%computationally, how does this compare to direct application of the quadratic formula?
-
-
-\subsection{Square root of a general CF}
-The algorithm is not much different for $x$ represented as a list of intervals. When we read an ambiguous interval
-$[x_\ell, x_h)$, we do not change the current matrix; instead we check whether the floors of the fixed points of $M_{x_\ell}$ and
-$M_{x_h}$ are the same. If so, this common value is the next term of $y$.
-
-Note we have assumed that all terms of $x$, including the first term, are greater than or equal to 1. If $x = [0,x_1,x_2,\cdots]$ then $\sqrt{x} = [0,z_0,z_1,\cdots]$ where $z = \sqrt{[x_1,x_2,\cdots]} = \sqrt{1/x}$. 
+Computationally, this should be faster than direct application of the quadratic formula, which would require multiple arithmetic operations as well as a square root.
 
 
 \bibliographystyle{plain}
