@@ -204,7 +204,7 @@ k & j\\
 
 \subsection{Properties of the Algorithm}
 The outer loop ``while $M \neq \infty$" is an infinite loop if $\mathbf{x} = [\mathbf{x}_0, \mathbf{x}_1,\cdots]$ is irrational
-(here we use boldface $\mathbf{x}$ for the real-valued input, as distinct from the symbolic variable $x$ in the homomorphic
+(here we use boldface $\mathbf{x}$ for the real-valued input, as distinct from the symbolic variable $x$ in the homographic
 expression). This can be implemented quite directly in a language like Haskell\footnote{\href{https://haskell.org}{haskell.org}} with
 lazy evaluation; such languages support conceptually infinite data structures, which are a perfect fit for working with continued
 fractions. Under lazy evaluation, defining a variable $y$ to be the result of an algorithm just associates $y$ with the finite recursive
@@ -357,7 +357,7 @@ Our preliminary algorithm demonstrates the basic idea of CF arithmetic, but is i
 we might endlessly ingest terms of both $x$ and $y$ without ever obtaining a bihomographic expression whose floor is known. The
 simplest case is multiplying $\sqrt{2} = [1,(2)]$ by itself. The first iteration, ingesting 1 from $x$ and from $y$, gives
 \begin{equation*}
-z = \sqrt{2}*\sqrt{2} = [z_0,z_1, \cdots] = \bihom{1}{1}{1}{1}{1}{0}{0}{0} \ .
+z = \sqrt{2}*\sqrt{2} = [z_0,z_1, \cdots] = \frac{xy+x+y+1}{xy} \ . %\bihom{1}{1}{1}{1}{1}{0}{0}{0} \ .
 \end{equation*}
 Repeatedly ingesting 2 from both $x$ and $y$ yields
 \begin{equation}\label{eq:bound2}
@@ -385,10 +385,10 @@ generalization, because the explicit term  $z_k=n$ is equivalent to the bound
 \[
 n \leq [z_k, z_{k+1}\cdots] < n+1 \ .
 \]
-Therefore, when a CF is constructed explicitly from a known sequence of terms $[z_0, z_1, \cdots]$,
+Therefore, when a CF is constructed explicitly from a known sequence of integer terms $[a_0, a_1, \cdots]$,
 it will be represented internally as the sequence of half-open intervals
 \[
-[[z_0, z_0+1),  [z_1, z_1+1), \cdots]\ .
+[[a_0, a_0+1),  [a_1, a_1+1), \cdots]\ .
 \] 
 At the opposite extreme, the internal representation for $\sqrt{2}^2$ will consist entirely of ever-tighter bounds on the first term, i.e. the sequence of intervals
 \[
@@ -396,13 +396,12 @@ At the opposite extreme, the internal representation for $\sqrt{2}^2$ will consi
 \] 
 
 The general idea (elaborated more fully in section \ref{sec:finalAlgorithm}) is that we will generate output on \emph{every}
- iteration of the arithmetic algorithm; when we cannot produce a term, we output upper and lower bounds on the current
- homomorphic matrix, leaving the matrix unchanged. Reading such output, there can be no ambiguity about the term to which a bound 
- applies; the first bound applies to $z_0$, and as soon as we encounter a bound which uniquely determines $z_k$ (i.e. an interval with
- $\lfloor x \rfloor$ the same for all $x$ in the interval), we know that the next bound will apply to $z_{k+1}$. This implies that any 
- finite prefix of the output sequence will determine a finite prefix $[z_0 \cdots z_{k-1}]$ of the actual CF, followed by a bound
+ iteration of the arithmetic algorithm; when we cannot produce the next term of $z$, we output upper and lower bounds on the current
+ homographic matrix, leaving the matrix unchanged. Reading such output, there can be no ambiguity about the term to which a bound 
+ applies; the first bound applies to $z_0$, and as soon as we encounter an explicit term $[a,a+1)$ we know that $z_k=n$ and the next bound will apply to $z_{k+1}$. 
+ This implies that any finite prefix of the output sequence will determine a finite prefix $[z_0 \cdots z_{k-1}]$ of the actual CF, followed by a bound
  $[\ell_k,u_k)$ on the tail $[z_k, z_{k+1}\cdots]$. The exact value of the CF is between $[z_0 \cdots z_{k-1}, \ell_k]$ and
- $[z_0 \cdots z_{k-1}, u_k]$ (where we extend the usual CF notation by allowing a rational number, instead of an integer, as the last term).
+ $[z_0 \cdots z_{k-1}, u_k]$; here we extend the usual CF notation by allowing a rational number, instead of an integer, as the last term.
 
 Note that storage of a long sequence of intervals is not an issue for implementation;
 successive bounds on the same term are always tighter, so there is no need to retain earlier bounds when a new one is obtained. 
@@ -423,18 +422,17 @@ In the case of $\sqrt{2}^2$, any accuracy threshold will yield the same result, 
 \subsection{An Algorithm for CF Arithmetic}\label{sec:finalAlgorithm}
 We now present the full details of the algorithm suggested in the previous section.  We augment the matrix $M$ with a pair of intervals
 $\{I_x, I_y\} = \{[x_{\ell},x_{u}), [y_{\ell}, y_{u})\}$, the current bounds on the remaining tails of the inputs $x,y$. These
-intervals start at $(-\infty, \infty)$, since the first term could be any integer. When we ingest an interval of the form $[a,a+1)$ from
+intervals start at $(-\infty, \infty)$, since the first term could be any integer. When we read an interval of the form $[a,a+1)$ from
 $x$ or from $y$, we modify $M$ as before with $M \leftarrow \mbox{ingest\_x}(a,M)$ or $M \leftarrow \mbox{ingest\_y}(a,M)$,
-and we change that variable's bound to $[1, \infty)$. When we ingest an \emph{ambiguous} interval $[\ell, u)$ (i.e. a bound that
-does not determine the next term of the input), we replace the current bound on the corresponding variable with $[\ell, u)$, leaving $M$ unchanged. 
+and we change that variable's bound to $[1, \infty)$. When we read an \emph{ambiguous} interval $[\ell, u)$ (i.e. a bound that
+does not determine the next term of the input), we replace the bound $I_x$ or $I_y$  with $[\ell, u)$, leaving $M$ unchanged.
 
-We define $\mathcal{R}(M)$ to take the bounds into account, i.e.
+For output, we first redefine $\mathcal{R}(M)$ to take the bounds into account, i.e.
 \begin{equation}
 \mathcal{R}\left(\abcd, I_x, I_y\right) = \left\{ \left\lfloor \bihom{a}{b}{c}{d}{e}{f}{g}{h} \right\rfloor | \  x \in I_x, y \in I_y \right\}
 \end{equation}
-When this is a singleton set $\{n\}$, we output $[n,n+1)$ and modify $M$ as before with $M \leftarrow \mbox{produce}(n,M)$;
-the bounds $I_x$ and $I_y$ do not change. Otherwise we leave $M$ unchanged and output upper and lower bounds on $M$,
-i.e. the min and max of $\bihom{a}{b}{c}{d}{e}{f}{g}{h}$ subject to $x \in I_x, y \in I_y$:
+When this is a singleton set $\{a\}$, we output $[a,a+1)$ and modify $M$ as before with $M \leftarrow \mbox{produce}(a,M)$;
+the intervals $I_x$ and $I_y$ do not change. Otherwise we leave $M$ unchanged and output the interval from min to max of $M(x,y)$ subject to $x \in I_x, y \in I_y$:
 denote this interval $\rho\left(\abcd, I_x, I_y\right)$.
 These bounds are easily computed, see section (\ref{sec:ComputeBounds}).
 To retain unlimited accuracy, the bounds must be computed with exact rational arithmetic.
@@ -442,66 +440,43 @@ To retain unlimited accuracy, the bounds must be computed with exact rational ar
 \begin{figure}\label{fig:twoCFarith}
 \begin{algorithmic}
 \STATE{}\COMMENT{input $x,y$: CFs represented as lists of intervals}
-\STATE{}\COMMENT{input $M$: bihomomorphic matrix}
-\STATE{}\COMMENT{output $z$: CF expansion of $M(x,y)$ represented as list of intervals}
+\STATE{}\COMMENT{input $M$: bihomographic matrix}
+\STATE{}\COMMENT{output $z$: CF expansion of $M(x,y)$, represented as a list of intervals}
 \STATE{$i \gets 0$} \COMMENT{index of the next element of $x$ and $y$ we will read}
 \STATE{$j \gets 0$} \COMMENT{index of the next element of $z$ we will generate}
 \STATE{$I_x,I_y \gets (-\infty, \infty),(-\infty, \infty)$} \COMMENT{current bounds on remaining parts of $x,y$}
 \WHILE {$M \neq \infty$}
     \STATE{}\COMMENT{read input}
-     \IF{$x_i$ is ambiguous}
-         \STATE{$I_x \gets x_i$}
-     \ELSE
-         \STATE{$M \gets \mbox{ingest\_x}( x_i, M)$}
+     \IF{$x_i = [a,a+1)$ (where $a$ is an integer)} 
+         \STATE{$M \gets \mbox{ingest\_x}( a, M)$}
          \STATE{$I_x \gets [1,\infty)$}
+     \ELSE    
+          \STATE{$I_x \gets x_i$}
      \ENDIF
-     \IF{$y_i$ is ambiguous}
-         \STATE{$I_y \gets y_i$}
-     \ELSE
-         \STATE{$M \gets \mbox{ingest\_y}( y_i, M)$}
+          \IF{$y_i = [a,a+1)$ (where $a$ is an integer)} 
+         \STATE{$M \gets \mbox{ingest\_y}( a, M)$}
          \STATE{$I_y \gets [1,\infty)$}
+     \ELSE    
+          \STATE{$I_y \gets y_i$}
      \ENDIF
      \STATE{$i \gets i+1$}
      
      \STATE{}\COMMENT{produce output}
-     \IF{$\mathcal{R}(M,I_x,I_y)$ is not a singleton}
-        \STATE{$z_j \gets \rho(M,I_x, I_y)$}
+     \IF{$\mathcal{R}(M,I_x,I_y)$ is a singleton set $\{a\}$}
+     \STATE{$M \gets \mbox{produce}(a, M)$}
+          \STATE{$z_j \gets [a,a+1)$}    
      \ELSE
-         \STATE{$z_j \gets \mathcal{R}(M,I_x,I_y)$}
-         \STATE{$M \gets \mbox{produce}(z_i, M)$}
+         \STATE{$z_j \gets \rho(M,I_x, I_y)$}
      \ENDIF
      \STATE{$j \gets j+1$}
 \ENDWHILE
 \end{algorithmic}
-\caption{Algorithm for arithmetic on two CFs}
+\caption{Algorithm for arithmetic on two CFs (without optimizations)}
 \end{figure}
 
 
-\subsection{Possible Optimizations of the CF Arithmetic Algorithm}
-\subsubsection{Winnowing Interval Sequences}
-When we have to ingest the next interval from $x$ or $y$, and we see an ambiguous interval at the head of the list, it is not necessary
-to ingest that interval; we may skip it and go on to the next element of the list, which will give a tighter bound on the next term. Any
-such heuristic must guarantee that, given an infinite list of ambiguous input intervals, we eventually ingest something. Similarly, the
-algorithm does not need to output every ambiguous interval of $z$; but  we must guarantee that we eventually output something,
-even if we are generating an infinite list of ambiguous intervals.
-
-
-\subsubsection{Taming Large Coefficients}
-If a high degree of accuracy is required, the coefficients of $M$ may grow very large; performing rational arithmetic on arbitrarily
-large integers will incur a performance penalty. We might be able to take advantage of the fact that we do not require the tightest
-possible bounds on the next term; the only requirement for correctness is that the bounds converge to the correct value. We might
-divide every coefficient of $M$ by some large integer $k$, rounding each result up or down in whichever direction slightly widens the
-range of $M$. We might do the same with intervals whose numerators and denominators are very large. To guarantee convergence,
-we must never make an adjustment which makes a new bound weaker than the current bound.
-
-Any such decision to ``simplify" $M$ must consider the gap between the upper and lower bounds of $M$; if the gap is large relative
-to the reciprocals of the coefficients, we might be carrying too many digits. Remember that, with lazy evaluation, all computations
-are driven by how much accuracy we need; if the gap is small, yet we are still continuing the computation, it means that we need
-even tighter bounds. In such cases large coefficients might be unavoidable.
-
-
 \subsection{Computing the range of $M$}\label{sec:ComputeBounds}
-To compute min and max of $M$ subject to $x_{\ell} < x < x_u, y_{\ell} < y < y_u$:
+To compute $\rho\left(\abcd, [x_{\ell}, x_u),  [y_{\ell}, y_u)\right)$:
 \begin{itemize}
 \item Let $\delta_x, \delta_y = x_u - x_{\ell}, y_u - y_{\ell}$
 \item Substitute $x \leftarrow x_{\ell} + \frac{\delta}{x'+1}$ and $y \leftarrow y_{\ell} + \frac{\delta}{y'+1}$.
@@ -513,6 +488,29 @@ The range of $M$ subject to the bounds will be the min and max of
 \left\{ \frac{a'}{e'},\frac{b'}{f'},\frac{c'}{g'},\frac{d'}{h'} \right\}
 \]
 assuming no sign change in the denominator as $x'$ goes from 0 to infinity; fractions with numerator and denominator both $0$ can be ignored.
+
+
+\subsection{Possible Optimizations of the CF Arithmetic Algorithm}
+\subsubsection{Winnowing Interval Sequences}
+When we have to ingest the next interval from $x$ or $y$, and we see an ambiguous interval at the head of the list, it is not necessary
+to ingest that interval; we may skip it and go on to the next element of the list, which will give a tighter bound on the next term.
+Any such heuristic must guarantee that, given an infinite list of ambiguous input intervals, we eventually ingest something. Similarly, the
+algorithm does not need to output every ambiguous interval of $z$; but  we must guarantee that we eventually output something,
+even if we are generating an infinite list of ambiguous intervals. The most obvious idea is to read and produce ambiguous intervals only if the gap is smaller than some threshold.
+
+\subsubsection{Taming Large Coefficients}
+If a high degree of accuracy is required, the coefficients of $M$ may grow very large; performing rational arithmetic on arbitrarily
+large integers will incur a performance penalty. We might be able to take advantage of the fact that we do not require the tightest
+possible bounds on the next term; the only requirement for correctness is that the bounds converge to the correct value. We might
+divide every coefficient of $M$ by some large integer $k$, rounding each result up or down in whichever direction slightly widens the
+range of $M$. We might do the same with intervals whose numerators and denominators are very large. To guarantee convergence,
+we must never make an adjustment which makes a new bound weaker than the current bound.
+
+Any such decision to ``simplify" $M$ must consider the gap between the upper and lower bounds of $M$; if the gap is large relative
+to the reciprocals of the coefficients, we might be carrying too many digits. However, with lazy evaluation, all computations
+are driven by how much accuracy we need; if the gap is small, yet we are still continuing the computation, it means that we need
+even tighter bounds. In such cases large coefficients might be unavoidable.
+
 
 \section{Solving Quadratic Equations}
 \subsection{Square root of a rational number}
@@ -621,7 +619,7 @@ Starting from $\left(
 \end{smallmatrix}
 \right)$, we must ingest terms of $\mathbf{x}$ until we reach a stage at which the floor of the fixed point does not depend on $x$;
 in other words, until the floor of the fixed point is the same when $x=1$ and $x=\infty$. This floor will be the next term of $y$.
-To find the next term, we first use binary searchto get $\hat{y}$, the floor of the fixed point of of $M_1$; 
+To find the next term, we first use binary search to get $\hat{y}$, the floor of the fixed point of of $M_1$; 
 then we check whether $\hat{y}$ is also the floor of the fixed point of  $M_{\infty}$. If so, we ingest
 $\hat{y}$ and produce $\hat{y}$; if not, we ingest another term of $\mathbf{x}$ and continue.
 
@@ -671,8 +669,8 @@ The first few terms of $\sqrt[4]{2}$ are $1.18921\cdots = [1,5,3,1,1,40,5,\cdots
 
 \begin{figure}\label{fig:sqrtCF}
 \begin{algorithmic}
-\STATE{}\COMMENT{input $x$: CF represented as list of intervals}
-\STATE{}\COMMENT{output $y$: CF expansion of $\sqrt{x}$ represented as list of intervals}
+\STATE{}\COMMENT{input $x$: CF represented as a list of intervals}
+\STATE{}\COMMENT{output $y$: CF expansion of $\sqrt{x}$, represented as a list of intervals}
 \STATE{$i \gets 0$} \COMMENT{index of the next element of $x$ we will read}
 \STATE{$j \gets 0$} \COMMENT{index of the next element of $y$ we will generate}
 \STATE{$(x_{\ell},x_h) \gets (1, \infty)$} \COMMENT{current bounds on remaining part of $x$}
@@ -685,11 +683,11 @@ The first few terms of $\sqrt[4]{2}$ are $1.18921\cdots = [1,5,3,1,1,40,5,\cdots
 \WHILE {$M \neq \infty$}  
    \WHILE{floor of fixed point of $M_{x_h}$ does not equal floor of fixed point of $M_{x_\ell}$}
       \STATE{}\COMMENT{read input}
-       \IF{$x_i = [a,b)$ is ambiguous}
-           \STATE{$(x_{\ell},x_h) \gets (a,b)$}
-       \ELSE
-           \STATE{$M \gets \mbox{ingest\_x}( x_i, M)$}
+       \IF{$x_i = [a,a+1)$ (where $a$ is an integer)}
+       \STATE{$M \gets \mbox{ingest\_x}( a, M)$}
            \STATE{$(x_{\ell},x_h) \gets [1,\infty)$}
+        \ELSE   
+             \STATE{$(x_{\ell},x_h) \gets x_i$}
        \ENDIF
             \STATE{$i \gets i+1$}
        \ENDWHILE
@@ -701,7 +699,7 @@ The first few terms of $\sqrt[4]{2}$ are $1.18921\cdots = [1,5,3,1,1,40,5,\cdots
           \STATE{$y_j \gets \infty$}
           \STATE{exit}\COMMENT{see section (\ref{sec:rational})}
         \ENDIF
-        \STATE{$y_j \gets \hat{y}$}
+        \STATE{$y_j \gets [\hat{y}, \hat{y}+1)$}
         \STATE{$j \gets j+1$}
         \STATE{$M \gets \mbox{produce}(\hat{y}, \mbox{ingest\_y}( \hat{y}, M))$}
   \ENDWHILE
@@ -721,7 +719,7 @@ To simplify the algorithm we have assumed that all terms of $x$, including the f
 
 
 \subsection{Algorithm Termination}
-It is possible for the algorithm to stall, reading infinitely many terms from $\mathbf{x}$ without ever determining the next term of $y$.
+It is possible for the square-root algorithm to stall, reading infinitely many terms from $\mathbf{x}$ without ever determining the next term of $y$.
 Suppose that the true fixed point of $M_\mathbf{x}$ is an integer $k$; as we ingest more terms from $\mathbf{x}$, the fixed points of $M_{x_\ell}$ and $M_{x_h}$ will both approach  $k$, but the floor of one fixed point will be $k$ and the floor of the other will be $k-1$.
 We cannot guarantee that a finite number of terms of $\mathbf{x}$ will ever determine $y_i=k$.
 This would happen, for instance, if we tried to compute the square root of 4, if 4 were given not as $x=[4,\infty]$, but instead as an infinite sequence of ambiguous terms approaching 4.
@@ -775,6 +773,32 @@ If $q$ is given as a continued fraction, we can solve (\ref{eq:cfQuadratic}) by 
 \right)$ and finding the fixed point, ingesting terms of  $q=\mathbf{x}$. The cases of $p$ or $r$ as continued fractions are similar.
 Computationally, this should be faster than direct application of the quadratic formula, which would require multiple arithmetic operations as well as a square root.
 
+
+\section{Arithmetic with Arbitrary Intervals}
+In the algorithm for CF arithmetic, all intervals are either ambiguous (i.e. there is an integer in the interior of the interval), or are of the form $[a,a+1)$ for integer $a$. But this potentially throws away information.
+Whenever we are able to produce an explicit output term $z_j \leftarrow [a,a+1)$, we in fact know that the tail lies in the possibly smaller interval $\rho(M,I_x, I_y)$, and can set $z_j \leftarrow \rho(M,I_x, I_y)$.
+
+If we generate such intervals as output then we must be able to read them as input. If $x_i = (a+\varepsilon_\ell, a+\varepsilon_u)$, we can ingest $x=a$ into $M$, and set $I_x \leftarrow (\varepsilon_u^{-1}, \varepsilon_\ell^{-1})$ instead of $I_x \leftarrow [1,\infty)$. This will yield a narrower range for $z_j$.
+
+As an example, consider dividing $x=[9,x_1, x_2,\cdots]$ by $y=[5,y_1, y_2,\cdots]$. After ingesting 9 and 5 we have
+\[
+M = \frac{9xy + y}{5xy + x}
+\]
+which gives us 1 as the first term of the expansion of $z=xy$. But the actual upper and lower bounds on $M(x,y)$ are
+\[
+\rho\bigl(\frac{9xy + y}{5xy + x}, [1,\infty), [1,\infty)\bigr) = (\frac{3}{2}, 2)\ .
+\]
+Now consider multiplying $z$ by itself. If $z$ starts with the explicit term $z_0=1$, ingesting 1 from $x$ and $y$ gives
+\[
+M  = \frac{xy+x+y+1}{xy}\ .
+\]
+With bounds of $[1,\infty)$ on $x$ and $y$, we cannot yet determine the first term of the CF expansion of $z^2$. But if $z$ is represented as $[(\frac{3}{2},2), \cdots]$ we get bounds of $(\frac{3}{2}, 2)$ on both inputs, and
+\[
+\rho\bigl(\frac{xy+x+y+1}{xy}, (\frac{3}{2}, 2), (\frac{3}{2}, 2)\bigr) = (\frac{9}{4}, \frac{25}{9})
+\]
+which suffices to give 2 as the first term of the expansion.
+
+Of course, such examples do not guarantee that the more general representation would give any computational advantage in practice, since more computation is required to manipulate the tighter bounds.
 
 \bibliographystyle{plain}
 \bibliography{cfAlgorithm}
