@@ -724,9 +724,9 @@ Suppose that the true fixed point of $M_\mathbf{x}$ is an integer $k$; as we ing
 We cannot guarantee that a finite number of terms of $\mathbf{x}$ will ever determine $y_i=k$.
 This would happen, for instance, if we tried to compute the square root of 4, if 4 were given not as $x=[4,\infty]$, but instead as an infinite sequence of ambiguous terms approaching 4.
 
-The solution is the same as in the case of arithmetic; we can output ambiguous terms of $y$. Let $\phi(M)$ denote the fixed point of $M$; then we can output $y_i = (\phi(M_{x_\ell}), \phi(M_{x_h})$.
+The solution is the same as in the case of arithmetic; we can output ambiguous terms of $y$. Let $\phi(M)$ denote the fixed point of $M$; we would like to output $y_i = (\phi(M_{x_\ell}), \phi(M_{x_h}))$. This does not quite work, since the bounds can be irrational, so we must instead define rational bounds ${\phi_\ell}'(M_{x_\ell}) \leq \phi(M_{x_\ell}), {\phi_h}'(M_{x_h}) \geq \phi(M_{x_h})$;  these bounds must be tight enough to guarantee convergence.
 
-Note that this problem cannot arise if $\mathbf{x}$ is irrational, since the fixed point will never be integral; $\phi(M_1)$ and $\phi(M_\infty)$ will approach a non-integral limit, and after a finite number of steps, the floors of the fixed points will be the same.
+Note that stalling cannot happen if $\mathbf{x}$ is irrational, since the fixed point will never be integral; $\phi(M_{x_\ell})$ and $\phi(M_{x_h})$ will approach a non-integral limit, and after a finite number of steps, the floors of the fixed points will be the same.
 
 
 \subsection{Rational Square Roots}\label{sec:rational}
