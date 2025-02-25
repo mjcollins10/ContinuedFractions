@@ -227,7 +227,9 @@ fixvar [[a,b,c,d],[e,f,g,h]] x | [[a,b],[e,f]] == [[0,0],[0,0]] = [[c,d],[g,h]] 
                                    where (xn, xd) = (numerator x, denominator x)
 
 -- evaluate a homomorphic matrix as a rational function
-evalMat [[p,q],[r,s]] y = (p*y+q)%(r*y+s)
+evalMat    [[p,q],[r,s]] y = (p*y+q)%(r*y+s)
+evalMatRat [[p,q],[r,s]] y = (p*n+q*d)%(r*n+s*d)
+                               where (n,d) = (numerator y, denominator y)-- y is already a ratio
 
 -- binary search to get floor of fixed point of *self-inverse* homographic M;
 -- i.e. find y such that y equals either floor M(y) or 1 + floor M(y);
@@ -249,18 +251,41 @@ fixpoint_ mat guess | mfloor == guess || mceil == guess = mfloor
                               newguess = if mfloor > guess then ceiling ((guess + mceil)%2) 
                                           else floor ((guess + mfloor)%2) -- new guess halfway between
 
+-- rational estimates of fixpoint
+-- binary search until | y - M(y) | < epsilon
+fixpointRat_ eps mat guess | abs (guess - mval) < eps = (min guess mval, max guess mval)
+                           | otherwise                = fixpointRat_ eps mat (mediant guess mval)
+                                where mval = evalMatRat mat guess
+
+fixpointRat :: Integral a => Ratio a -> [[a]] -> (Ratio a, Ratio a)
+fixpointRat eps [[p,q],[r,s]] = fixpointRat_  eps [[p,q],[r,s]] firstGuess
+                                  where firstGuess = if r > 0 then max 1 (1 + (-s%r)) else (1%1) 
+
+-- splitting binary search with (lo + hi)/2 leads to very large numerators and denominators
+-- in fact still getting larger terms than we expected
+mediant lo hi = ((numerator lo)+(numerator hi))%((denominator lo)+(denominator hi))
+
+-- TODO: finish fix for stalling bug; output ambiguous terms of (sqrt x)
 -- will always need to ingest first term of x, so just do it
-cfSqrt (MakeCF_ x) =  makeCF $ cfSqrtIter ( ingestX (head_ x) ( [[0,1,0,0], [0,0,1,0]], nobound, nobound ) ) (tail_ x) 
+-- cfSqrt (MakeCF_ x) =  MakeCF_ $ cfSqrtIter ( ingestX (head_ x) ( [[0,1,0,0], [0,0,1,0]], nobound, nobound ) ) (tail_ x) 
 -- advance to next stage of square-root computation
 -- if floor of fixed point of mat does not depend on x, we can get next
 -- term of output; else ingest another term of x into mat
-cfSqrtIter mat x | all (==0) (m!!1) = [] -- have reached end of computing rational result
+{- cfSqrtIter mat x | all (==0) (m!!1) = [] -- have reached end of computing rational result
                  | y <= 0 = []
-                 | matHasFixpoint = y:(cfSqrtIter (produce y (ingestY (termToBound y) mat)) x) 
-                 | otherwise      = cfSqrtIter (ingestX (head_ x) mat) (tail_ x)
+                 | matHasFixpoint = (termToBound y):(cfSqrtIter (produce y (ingestY (termToBound y) mat)) x) 
+                 | otherwise      = yBounds:cfSqrtIter (ingestX (head_ x) mat) (tail_ x)) -- output ambiguous term
                       where y   = fixpoint (fixvar m xLo)
                             yHi = fixpoint (fixvar m xHi) -- change to just check if y is fixpoint
                             matHasFixpoint = y == yHi
+                            yBounds =  getbounds (fixpointRat eps (fixvar m xLo), fixpointRat eps  (fixvar m xLo)) 
+                            eps = matchAccuracyOf boundX -- just min 1 (xHi-xLo) 
+                            -- true fixpoint can be irrational, need rational bounds
+                            -- but must be tight enough to guarantee convergence!!!
+                            -- 'getbounds' will grab lower bound of smaller, upper bound of larger
+                            -- (just take overall min, max of the four values)
                             (m, boundX, boundY) = mat
                             (xLo, xHi) = boundX
 
+reorder (a,b) = if a <= b then (a,b) else (b,a)
+-}
