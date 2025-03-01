@@ -125,9 +125,9 @@ r & s
 
 To formalize our observations, we first define the \emph{range} of the function given by (\ref{eq:homographic})
 as the set of possible floors, i.e.
-\begin{equation}
+\[
 \mathcal{R}\pqrs = \left\{ \left\lfloor \frac{px+q}{rx+s} \right\rfloor | \  1 \leq x < \infty \right\}
-\end{equation}
+\]
 We will be able to produce the next term of output when this set is a singleton. If $-s/r \leq 1$ then the denominator cannot be zero,
 and the upper and lower limits are the min and max of $\{p/r, (p+q)/(r+s)\}$: if $p/r$ is the max, and is also an integer, then the
 integer part cannot be larger than $p/r-1$, since we are approaching $p/r$ from below. If  $-s/r > 1$ the range will be infinite, so
@@ -136,9 +136,9 @@ there is no need to compute it explicitly; we need to transform the expression b
 We define two transformations on homographics. When the range of the homographic expression for $[y_j,y_{j+1},\cdots]$ is not a
 singleton set, we do not yet have enough information to determine $y_j$, and must $\emph{ingest}$ the next term of $x$. If this term
 is $k$ we make the substitution $x \leftarrow k + 1/x$, leading to the definition
-\begin{equation}
+\[
 \mbox{ingest}(k,\pqrs) = \homographic{kp+q}{p}{kr+s}{r}%\frac{(kp+q)x + p}{ (kr+s)x + r}
-\end{equation}
+\]
 
 When the range of the homographic expression for $[y_j,y_{j+1},\cdots]$ consists of a single integer $k$, we can \emph{produce}
 the next output term $y_j = k$; the rest of the output, $[y_{j+1},y_{j+2},\cdots]$, is the continued fraction expansion of
@@ -146,9 +146,9 @@ the next output term $y_j = k$; the rest of the output, $[y_{j+1},y_{j+2},\cdots
 \frac{1}{\frac{px+q}{rx+s}-k} = \frac{rx+s}{(p-kr)x + (q-ks)}
 \] 
 so we define 
-\begin{equation}
+\[
 \mbox{produce}(k,\pqrs) = \homographic{r}{s}{p-kr}{q-ks}\ .
-\end{equation}
+\]
 
 Note that if we started with rational $x$, we will eventually reach $x_i = \infty$; ingesting infinity returns the limit ${\left(
 \begin{smallmatrix} 
@@ -293,30 +293,30 @@ When the floor (i.e. the next term of output) is known, we produce output $z_j=k
 \left(\frac{axy + bx + cy + d}{exy + fx + gy + h} - k\right)^{-1} = \frac{exy + fx + gy + h}{(a-ke)xy + (b-kf)x + (c-kg)y + (d-kh)}
 \]
 so we define the corresponding operation on matrices
-\begin{equation}
-\mbox{produce}(k, \abcd) = \bihomographic{e}{f}{g}{h}{(a-ke)}{(b-kf)}{(c-kg)}{(d-kh)}
-\end{equation}
- If the floor is not determined (in particular when the denominator might be zero), we must narrow the range by ingesting the next term of either $x$ or $y$.
- If we use $y = [s,y_{k+1},y_{k+2}\cdots]$, we make the substitution $y \leftarrow s + 1/y$ to get
 \[
-\frac{(sa+b)xy + ax + (sc+d)y + c}{(se+f)xy + ex + (sg+h)y + g}
+\mbox{produce}(k, \abcd) = \bihomographic{e}{f}{g}{h}{(a-ke)}{(b-kf)}{(c-kg)}{(d-kh)}
+\]
+ If the floor is not determined (in particular when the denominator might be zero), we must narrow the range by ingesting the next term of either $x$ or $y$.
+ If we use $x = [s,x_{k+1},x_{k+2}\cdots]$, we make the substitution $x \leftarrow s + 1/x$ to get
+\[
+\frac{(sa+c)xy + (sb+d)x + ay + b}{(ae+g)xy + (af+h)x + ey + f}
 \]
 so we define
-\begin{equation}
-\mbox{ingest\_y}(s, \abcd) = \bihomographic{(sa+b)}{a}{(sc+d)}{c}{(se+f)}{e}{(sg+h)}{g}
-\end{equation}
-with the analogous 
-\begin{equation}
+\[
 \mbox{ingest\_x}(s, \abcd) = \bihomographic{(sa+c)}{(sb+d)}{a}{b} {(ae+g)}{(af+h)}{e}{f}
-\end{equation} 
-for the result of substituting $x \leftarrow s + 1/x$.
+\]
+with the analogous 
+\[
+\mbox{ingest\_y}(s, \abcd) = \bihomographic{(sa+b)}{a}{(sc+d)}{c}{(se+f)}{e}{(sg+h)}{g}
+\]
+for the result of substituting $y \leftarrow s + 1/y$.
 If one or both inputs are rational, we will eventually ingest infinity, which we define by taking the limit:
-\begin{equation}
-\mbox{ingest\_y}(\infty, \abcd) = \bihomographic{0}{a}{0}{c}{0}{e}{0}{g}
-\end{equation}
-\begin{equation}
+\[
 \mbox{ingest\_x}(\infty, \abcd) = \bihomographic{0}{0}{a}{b} {0}{0}{e}{f}
-\end{equation} 
+\]
+\[
+\mbox{ingest\_y}(\infty, \abcd) = \bihomographic{0}{a}{0}{c}{0}{e}{0}{g}
+\] 
 
 
 \begin{figure}\label{fig:twoCFarithPrelim}
@@ -407,7 +407,7 @@ Note that storage of a long sequence of intervals is not an issue for implementa
 successive bounds on the same term are always tighter, so there is no need to retain earlier bounds when a new one is obtained. 
 
 \subsection{Extracting Terms}
-We must note that our representation of CF arithmetic makes it \emph{impossible} to simply ask a question like ``what are the first
+We must note that our representation of CF arithmetic makes it impossible to simply ask a question like ``what are the first
 five terms of $z = xy$?" An explicit list of terms can only be relative to a required degree of accuracy $\varepsilon$. Our arithmetic
 algorithms consume and return theoretically infinite sequences of intervals; extracting a finite sequence of terms is a separate
 ``post-processing" step, carried out only when a numerical approximation is required.
@@ -428,9 +428,9 @@ and we change that variable's bound to $[1, \infty)$. When we read an \emph{ambi
 does not determine the next term of the input), we replace the bound $I_x$ or $I_y$  with $[\ell, u)$, leaving $M$ unchanged.
 
 For output, we first redefine $\mathcal{R}(M)$ to take the bounds into account, i.e.
-\begin{equation}
+\[
 \mathcal{R}\left(\abcd, I_x, I_y\right) = \left\{ \left\lfloor \bihom{a}{b}{c}{d}{e}{f}{g}{h} \right\rfloor | \  x \in I_x, y \in I_y \right\}
-\end{equation}
+\]
 When this is a singleton set $\{a\}$, we output $[a,a+1)$ and modify $M$ as before with $M \leftarrow \mbox{produce}(a,M)$;
 the intervals $I_x$ and $I_y$ do not change. Otherwise we leave $M$ unchanged and output the interval from min to max of $M(x,y)$ subject to $x \in I_x, y \in I_y$:
 denote this interval $\rho\left(\abcd, I_x, I_y\right)$.
@@ -724,13 +724,25 @@ Suppose that the true fixed point of $M_\mathbf{x}$ is an integer $k$; as we ing
 We cannot guarantee that a finite number of terms of $\mathbf{x}$ will ever determine $y_i=k$.
 This would happen, for instance, if we tried to compute the square root of 4, if 4 were given not as $x=[4,\infty]$, but instead as an infinite sequence of ambiguous terms approaching 4.
 
-The solution is the same as in the case of arithmetic; we can output ambiguous terms of $y$. Let $\phi(M)$ denote the fixed point of $M$; we would like to output $y_i = (\phi(M_{x_\ell}), \phi(M_{x_h}))$. This does not quite work, since the bounds can be irrational, so we must instead define rational bounds ${\phi_\ell}'(M_{x_\ell}) \leq \phi(M_{x_\ell}), {\phi_h}'(M_{x_h}) \geq \phi(M_{x_h})$;  these bounds must be tight enough to guarantee convergence.
+The solution is the same as in the case of arithmetic; we can output ambiguous terms of $y$. Let $\phi(M)$ denote the fixed point of $M$; we would like to output $y_i = (\phi(M_{x_\ell}), \phi(M_{x_h}))$. This does not quite work, since the bounds can be irrational, so we must instead define rational bounds ${\phi_\ell}'(M_{x_\ell}) \leq \phi(M_{x_\ell}), {\phi_h}'(M_{x_h}) \geq \phi(M_{x_h})$;  these bounds must be tight enough to guarantee convergence. We can find approximate rational bounds with binary search.
 
 Note that stalling cannot happen if $\mathbf{x}$ is irrational, since the fixed point will never be integral; $\phi(M_{x_\ell})$ and $\phi(M_{x_h})$ will approach a non-integral limit, and after a finite number of steps, the floors of the fixed points will be the same.
 
 
-\subsection{Rational Square Roots}\label{sec:rational}
-There is one further implementation detail that arises in the case where $y$ is in fact a rational number,
+\subsection{Further Implementation Details}\label{sec:rational}
+We must take some care in considering the fixed point of $M_\infty$. In our computation of $\sqrt[4]{2}$, we obtained 
+ $M=\frac{yx+x}{y-x}$ after ingesting $x_0=1$ and then ingesting/producing $y_0=1$.
+ At this point, rather than immediately ingesting $x_1=1$, we might see if we can get another term of $y$ from $M$. We have
+ \begin{equation*}
+\begin{array}{cc}
+M_1 = \frac{y+1}{y-1} & M_\infty = \frac{y+1}{-1}\ . \\
+\end{array}
+\end{equation*}
+The fixed point of $M_1$ is between 2 and 3, but the fixed point of $M_\infty$ is negative. What is going on?
+$M_\infty$ is the limit as $x \to \infty$ for any fixed $y$, but in this case the fixed point of $M_x$ approaches infinity as $x \to \infty$, leading to the invalid result.
+At this point we may validly generate $[2,\infty)$ as a bound on $y_1$.
+ 
+A similar issue arises in the case where $y$ is in fact a rational number,
 i.e. a finite continued fraction. Suppose we apply our algorithm to get the square root of 9, i.e. $x = [9,\infty]$.
 After making the initial substitution $x \leftarrow 9 + \frac{1}{x}$, then ingesting/producing $y_0=3$,
 we will be seeking the fixed point
@@ -741,19 +753,17 @@ Note that (\ref{eq:sqrt9}) is simply a rearrangement of $3+\frac{1}{y} = \sqrt{9
 \[
 3+\frac{1}{y} = \frac{9+\frac{1}{x}}{3+\frac{1}{y}}\ .
 \]
-Written this way it is obvious that $y$ approaches infinity as $x$ approaches infinity. But if we now ingest $x=\infty$, we will be trying to solve
+Written this way it is obvious that $y$ approaches infinity as $x$ approaches infinity. After ingesting $x=\infty$, the variable $x$ disappears and we will be trying to solve
 \[
 y = \frac{3y+1}{-3}\ .
 \]
-We certainly find that the fixed points of $M_1$ and $M_\infty$ are the same! With the variable $x$ gone entirely, both matrices are just
+Now $M_1$ and $M_\infty$ must be the same; with $x$ gone, both matrices are just
 $\left(
 \begin{smallmatrix} 
 3 & 1 \\ 
 0 & -3 
 \end{smallmatrix}
-\right)$. But the fixed point is $y=-1/6$, suggesting that $y_1$ should be the floor, $-1$. What has gone wrong? Our definition of $M_\infty$ is meant to be the limit of $M_x$ as $x \to \infty$; but the definition implicitly assumes that $y$ is finite, so the terms $cy+d$ and $gy+h$ go away. The matrix is wrong when $y$ goes to infinity along with $x$, and the invalid result (i.e. $y_i \leq 0$) reveals this; so we can terminate the computation with $y_1 = \infty$.
-
-We emphasize that checking for an invalid output $y_i < 1$ is a sufficient condition for termination with $y_i=\infty$; if we get a valid term $y_i \geq 1$, this must be the correct next output term.
+\right)$. The fixed point is $y=-1/6$, again meaning that in fact the fixed point goes to infinity as $x$ does; so we terminate the computation with $y_1 = \infty$.
 
 
 \subsection{Quadratic equations}
@@ -780,25 +790,7 @@ Whenever we are able to produce an explicit output term $z_j \leftarrow [a,a+1)$
 
 If we generate such intervals as output then we must be able to read them as input. If $x_i = (a+\varepsilon_\ell, a+\varepsilon_u)$, we can ingest $x=a$ into $M$, and set $I_x \leftarrow (\varepsilon_u^{-1}, \varepsilon_\ell^{-1})$ instead of $I_x \leftarrow [1,\infty)$. This will yield a narrower range for $z_j$.
 
-As an example, consider dividing $x=[9,x_1, x_2,\cdots]$ by $y=[5,y_1, y_2,\cdots]$. After ingesting 9 and 5 we have
-\[
-M = \frac{9xy + y}{5xy + x}
-\]
-which gives us 1 as the first term of the expansion of $z=xy$. But the actual upper and lower bounds on $M(x,y)$ are
-\[
-\rho\bigl(\frac{9xy + y}{5xy + x}, [1,\infty), [1,\infty)\bigr) = (\frac{3}{2}, 2)\ .
-\]
-Now consider multiplying $z$ by itself. If $z$ starts with the explicit term $z_0=1$, ingesting 1 from $x$ and $y$ gives
-\[
-M  = \frac{xy+x+y+1}{xy}\ .
-\]
-With bounds of $[1,\infty)$ on $x$ and $y$, we cannot yet determine the first term of the CF expansion of $z^2$. But if $z$ is represented as $[(\frac{3}{2},2), \cdots]$ we get bounds of $(\frac{3}{2}, 2)$ on both inputs, and
-\[
-\rho\bigl(\frac{xy+x+y+1}{xy}, (\frac{3}{2}, 2), (\frac{3}{2}, 2)\bigr) = (\frac{9}{4}, \frac{25}{9})
-\]
-which suffices to give 2 as the first term of the expansion.
-
-Of course, such examples do not guarantee that the more general representation would give any computational advantage in practice, since more computation is required to manipulate the tighter bounds.
+Of course there is no guarantee that the more precise representation would give any computational advantage in practice, since more computation is required to manipulate the tighter bounds.
 
 \bibliographystyle{plain}
 \bibliography{cfAlgorithm}
