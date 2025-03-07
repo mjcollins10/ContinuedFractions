@@ -35,7 +35,7 @@ e & f & g & h
 
 \begin{abstract}
 Gosper  developed algorithms for adding, subtracting, multiplying, or dividing two CFs, and for solving quadratics with CF coefficients,
-getting a CF as the result. Here we present modified versions of those algorithms which avoid all difficulties with infinite loops.
+getting a CF as the result. Straightforward implementation of these algorithms can lead to infinite loops; here we present modified versions of those algorithms which avoid all difficulties with infinite loops.
 We have implemented these algorithms in Haskell.
 \end{abstract}
 
@@ -99,7 +99,7 @@ The mere fact that $r_0>1$ is enough to tell us that $\lfloor \frac{2r_0}{r_0+1}
 \begin{equation*}
 [y_2,\cdots] = \frac{r_0+1}{r_0-1} \ .
 \end{equation*}
-Now the floor of $\frac{r_0+1}{r_0-1}$ ranges from 1 to infinity as $r_0$ ranges from one to infinity,
+Now the floor of $\frac{r_0+1}{r_0-1}$ ranges from one to infinity as $r_0$ ranges from one to infinity,
 so we need to make use of $\pi_1 = 7$; we substitute $r_0 = 7+1/r_1$ to get
 \begin{equation*}
 [y_2,\cdots] = \frac{8 + 1/r_1}{6 + 1/r_1} = \frac{8r_1 + 1}{6r_1 + 1} = 1 + \frac{2r_1}{6r_1 + 1}= 1 + \frac{1}{[y_3,\cdots]}\ .
@@ -137,7 +137,7 @@ We define two transformations on homographics. When the range of the homographic
 singleton set, we do not yet have enough information to determine $y_j$, and must $\emph{ingest}$ the next term of $x$. If this term
 is $k$ we make the substitution $x \leftarrow k + 1/x$, leading to the definition
 \[
-\mbox{ingest}(k,\pqrs) = \homographic{kp+q}{p}{kr+s}{r}%\frac{(kp+q)x + p}{ (kr+s)x + r}
+\mbox{ingest}(k,\pqrs) = \homographic{q+kp}{p}{s+kr}{r}%\frac{(kp+q)x + p}{ (kr+s)x + r}
 \]
 
 When the range of the homographic expression for $[y_j,y_{j+1},\cdots]$ consists of a single integer $k$, we can \emph{produce}
@@ -732,7 +732,7 @@ Note that stalling cannot happen if $\mathbf{x}$ is irrational, since the fixed 
 \subsection{Further Implementation Details}\label{sec:rational}
 We must take some care in considering the fixed point of $M_\infty$. In our computation of $\sqrt[4]{2}$, we obtained 
  $M=\frac{yx+x}{y-x}$ after ingesting $x_0=1$ and then ingesting/producing $y_0=1$.
- At this point, rather than immediately ingesting $x_1=1$, we might see if we can get another term of $y$ from $M$. We have
+ At this point, rather than immediately ingesting $x_1=2$, we might see if we can get another term of $y$ from $M$. We have
  \begin{equation*}
 \begin{array}{cc}
 M_1 = \frac{y+1}{y-1} & M_\infty = \frac{y+1}{-1}\ . \\
@@ -740,7 +740,7 @@ M_1 = \frac{y+1}{y-1} & M_\infty = \frac{y+1}{-1}\ . \\
 \end{equation*}
 The fixed point of $M_1$ is between 2 and 3, but the fixed point of $M_\infty$ is negative. What is going on?
 $M_\infty$ is the limit as $x \to \infty$ for any fixed $y$, but in this case the fixed point of $M_x$ approaches infinity as $x \to \infty$, leading to the invalid result.
-At this point we may validly generate $[2,\infty)$ as a bound on $y_1$.
+At this point we may validly generate $[\alpha,\infty)$ as a bound on $y_1$, where $\alpha$ is any rational lower bound on the fixed point of $M_1$; for instance $\alpha = 2$ would be correct.
  
 A similar issue arises in the case where $y$ is in fact a rational number,
 i.e. a finite continued fraction. Suppose we apply our algorithm to get the square root of 9, i.e. $x = [9,\infty]$.
