@@ -62,7 +62,7 @@ We can also do comparison to a specified accuracy:
 	*Main> eqWithin (2**(-14)) (x^2) 2
 	False
 
-Note that there is no function which, given integer `n`, will simply return the first `n`  terms of a CF. To see why, consider asking for the first few terms of `sqrt2^2`. Any terminating computation can only make use of some finite prefix of the infinte list `[1,2,2,2 ...]`. But no such prefix is enough to rule out the possibility that the value is slightly less than the square root of 2; if that is the case, the first term should be 1. Otherwise it should be 2. So it is not always meaningful to ask for terms of a CF without reference to a degree of accuracy.
+Note that there is no function which, given integer `n`, will simply return the first `n`  terms of a CF. To see why, consider asking for the first few terms of `sqrt2^2`. Any terminating computation can only make use of some finite prefix of the infinte list `[1,2,2,2 ...]`. But no such prefix is enough to rule out the possibility that the thing being squared is slightly less than the square root of 2; if that is the case, the first term should be 1. Otherwise it should be 2. So it is not always meaningful to ask for terms of a CF without reference to a degree of accuracy.
 
 We have also implemented Gosper's algorithm for extracting the square root of a CF:
 
@@ -75,7 +75,30 @@ We have also implemented Gosper's algorithm for extracting the square root of a 
 	*Main> sqrt_x^2
 	cf[42,5,1,6,1,4,3,6,2]	
 	
+	*Main> p x = 3*x^2 - 5*x - 1
+	*Main> floatD = sqrt $ 5*5 + 4*3 -- discriminant of quadratic
+	*Main> cfD    = cfSqrt $ makeCF [5*5 + 4*3]
+	*Main> 
+	*Main> p $ (5 + floatD)/(2*3)  -- quadratic formula
+	0.0
+	*Main> p $ (5 - floatD)/(2*3)  -- almost right
+	-3.3306690738754696e-16
+	*Main> 
+	*Main> p $ (5 + cfD)/(2*3)
+	cf[0]
+	*Main> p $ (5 - cfD)/(2*3)  -- exactly right
+	cf[0]
+	
+We can also compute exponentials (still a work in progress):
+
+	*Main> cfExp (cfSqrt 2)
+	cf[4,8,1,4,1,7,2,12,1,18]
+	*Main> cfToFloat $ cfExp (cfSqrt 2)
+	4.113250378715521
+	*Main> exp (sqrt 2)
+	4.1132503787829275
+	
 ## TODO
 * Sanity checking; return useful error if user tries to construct CF with negative terms, take square root of negative number, et cetera.
-* Fix problem with Fractional vs. Floating: currently, if `x` is of type `CF`, we can do `x+3.141` or `x*3.141` but not `x+pi` or `x*pi` et cetera.
+* Make CF a `Floating` class
 * Integrate with other Haskell packages for high-precision and arbitrary-precision arithmetic: Data.Scientific, AERN, et cetera.
