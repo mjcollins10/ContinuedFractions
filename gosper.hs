@@ -8,9 +8,9 @@ import Data.Ratio -- get (%) operator for rational arithmetic
 termToBound n =  (n%1, (n+1)%1) -- generalized internal representation of CF term n
 -- a bound of the form (n,n+1) gives us n as the next CF term
 isTerm (lo,hi) = (denominator lo == 1) && (denominator hi == 1) && ((numerator hi == 1 + numerator lo) || (numerator lo == infinity))
-epsDefault = 1 % 2^32 -- default threshold for 'equality'
 infinity :: Integer
 infinity = 999999999999
+epsDefault = 1%(2^32) -- default threshold for 'equality'
 nobound = (1%1, infinity%1)
 pmInfinity = (-infinity%1, infinity%1) 
 
@@ -18,17 +18,19 @@ pmInfinity = (-infinity%1, infinity%1)
 -- as x,y vary independently from *zero* to infinity
 -- with no sign change in denominator this is min,max of {a/e, b/f, c/g, d/h}
 -- ratRange_ is min,max of bihomomorphic matrix
-openceil n d = (div n d) + if (mod n d) == 0 then -1 else 0 -- if asymptotic upper bound is k, integer part is <= k-1
-getmin n d = if d /= 0 then (div n d)      else (signum n)*infinity 
-getmax n d = if d /= 0 then (openceil n d) else (signum n)*infinity 
-getrat n d = if d /= 0 then (n%d)          else ((signum n)*infinity)%1 
+openceil n d   = (div n d) + if (mod n d) == 0 then -1 else 0 -- if asymptotic upper bound is k, integer part is <= k-1
+getmin adj n d = if d /= 0 then (div n d)      else adj*(signum n)*infinity 
+getmax adj n d = if d /= 0 then (openceil n d) else adj*(signum n)*infinity 
+getrat adj n d = if d /= 0 then (n%d)          else (adj*(signum n)*infinity)%1 
 range_ [numr,denr] | any (>0) denr && any (<0) denr && any (/= 0) numr = (-infinity,infinity) -- sign change in denominator
-                   | otherwise = ( fromIntegral (minimum [ getmin n d | (n,d) <- zip numr denr , (n,d) /= (0,0) ]),
-                                   fromIntegral (maximum [ getmax n d | (n,d) <- zip numr denr , (n,d) /= (0,0) ]) )
+                   | otherwise = ( fromIntegral (minimum [ getmin adj n d | (n,d) <- zip numr denr , (n,d) /= (0,0) ]),
+                                   fromIntegral (maximum [ getmax adj n d | (n,d) <- zip numr denr , (n,d) /= (0,0) ]) )
+                                      where adj = if all (<= 0) denr && any (<0) denr then (-1) else 1 -- negative as denominator approaches zero
 
 ratRange_ [numr,denr] | any (>0) denr && any (<0) denr && any (/= 0) numr = pmInfinity -- sign change in denominator
-                      | otherwise = ( minimum [ getrat n d | (n,d) <- zip numr denr , (n,d) /= (0,0) ],
-                                      maximum [ getrat n d | (n,d) <- zip numr denr , (n,d) /= (0,0) ] )
+                      | otherwise = ( minimum [ getrat adj n d | (n,d) <- zip numr denr , (n,d) /= (0,0) ],
+                                      maximum [ getrat adj n d | (n,d) <- zip numr denr , (n,d) /= (0,0) ] )
+                                      where adj = if all (<= 0) denr && any (<0) denr then (-1) else 1 -- negative as denominator approaches zero
 
 -- aside from the leading term, can assume all terms of a CF are >= 1;
 -- to compute range of a bihomomorphic matrix as x,y vary from 1 to infinity
@@ -36,9 +38,9 @@ ratRange_ [numr,denr] | any (>0) denr && any (<0) denr && any (/= 0) numr = pmIn
 shift [a,b,c,d] = [a, a+b, a+c, a+b+c+d]
 
 -- find min,max value of matrix subject to bounds on x,y
-range (matrix, boundX, boundY) = range_ (map shift matrixWithBounds)
+range (matrix, boundX, boundY) = range_ (map shift matrixWithBounds) 
                               where matrixWithBounds = (substituteY boundY (substituteX boundX matrix))
-ratRange (matrix, boundX, boundY) = ratRange_ (map shift matrixWithBounds)
+ratRange (matrix, boundX, boundY) = ratRange_ (map shift matrixWithBounds) 
                               where matrixWithBounds = (substituteY boundY (substituteX boundX matrix))
 
 -- if we know that the floor of x equals n, we can make the 
@@ -54,24 +56,41 @@ ingestY termOrBound (matrix,boundX,boundY) | isTerm termOrBound = (substituteY t
 -- by substitution x <- n/q + r/(sx); i.e. x ranges from n/q to n/q + r/s
 -- if we know that the floor of x equals n, we have q == r == s == 1
 substituteX (lo,hi) [[a,b,c,d],[e,f,g,h]] | all (==0) [a,b,e,f]   = [[0,0,c,d],[0,0,g,h]] -- no x terms in matrix
-                                          | (lo,hi) == nobound    = [[a,b,c,d],[e,f,g,h]] -- nothing changes
-                                          | n == infinity         = [[0,0,a,b],[0,0,e,f]] -- limit as x -> \infty
-                                          | (lo,hi) == pmInfinity = [[-a, -b, 2*a, 2*b],[-e, -f, 2*e, 2*f]] 
+                                          | (lo,hi) == nobound    = [[a,b,c,d],[e,f,g,h]] -- nothing changes; 1 <= x <= \infty
+                                          | n == infinity         = limXinf [[a,b,c,d],[e,f,g,h]]
+                                          | hi >= (infinity%1)    = [[q_*a, q_*b, n_*a+q_*c, q_*d+n_*b], -- x <- lo - 1 + x
+                                                                     [q_*e, q_*f, n_*e+q_*g, q_*h+n_*f]]
+                                          | (lo,hi) == pmInfinity = [[-a, -b, 2*a, 2*b],[-e, -f, 2*e, 2*f]] -- will this ever happen?
                                           | otherwise             = [[n*a*s + c*q*s, n*b*s + d*q*s, a*q*r, b*q*r],
-                                                                   [n*e*s + g*q*s, n*f*s + h*q*s, e*q*r, f*q*r]]
+                                                                     [n*e*s + g*q*s, n*f*s + h*q*s, e*q*r, f*q*r]]
                                               -- rewrite the bound (lo,hi) as (lo, delta)==(lo,hi-lo)
                                               where  (n,q) = (numerator lo, denominator lo) 
                                                      (r,s) = (numerator (hi-lo), denominator (hi-lo))
+                                                     (n_, q_) = (numerator (lo-1), denominator (lo-1))
 
 substituteY (lo,hi) [[a,b,c,d],[e,f,g,h]] | all (==0) [a,c,e,g] = [[0,b,0,d],[0,f,0,h]] -- no y terms in matrix
                                           | (lo,hi) == nobound  = [[a,b,c,d],[e,f,g,h]] -- nothing changes
-                                          | n == infinity       = [[0,a,0,c],[0,e,0,g]] -- limit as y -> \infty
+                                          | n == infinity       = limYinf [[a,b,c,d],[e,f,g,h]] 
+                                          | hi >= (infinity%1)    = [[q_*a, n_*a+q_*b, q_*c, q_*d+n_*c], -- y <- lo - 1 + y
+                                                                     [q_*e, n_*e+q_*f, q_*g, q_*h+n_*g]] 
                                           | (lo,hi) == pmInfinity = [[-a, 2*a, -c, 2*c],[-e, 2*e, -g, 2*f]] 
                                           | otherwise           = [[n*a*s + b*q*s, a*q*r, n*c*s + d*q*s, c*q*r],
                                                                    [n*e*s + f*q*s, e*q*r, n*g*s + h*q*s, g*q*r]]
                                               -- rewrite the bound (lo,hi) as (lo, delta)==(lo,hi-lo)
                                               where  (n,q) = (numerator lo, denominator lo)  
                                                      (r,s) = (numerator (hi-lo), denominator (hi-lo))
+                                                     (n_, q_) = (numerator (lo-1), denominator (lo-1))
+
+-- deal with various special cases of computing limits as x or y approaches infinity
+limXinf [[a,b,c,d],[e,f,g,h]] | (a,b) /= (0,0) && (e,f) /= (0,0) = [[0,0,a,b],[0,0,e,f]] -- limit of (axy+bx)/(exy+fx) as x -> \infty
+                              | (a,c) == (0,0)                   = [[0,0,0,0],[0,0,0,1]] -- we know (e,f) \=0, so denom -> \infty
+                              | (a,b) == (0,0) && (e,f) == (0,0) = [[0,0,0,(signum b)*infinity],[0,0,0,signum h]] -- no y terms in matrix, constant denominator
+                              | otherwise                        = [[0,0,0,-infinity],[0,0,0,1]] -- use -infinity to denote invalid result of div by zero
+
+limYinf [[a,b,c,d],[e,f,g,h]] | (a,c) /= (0,0) && (e,g) /= (0,0) = [[0,a,0,c],[0,e,0,g]] -- limit of (axy+cy)/(exy+gy) as y -> \infty
+                              | (a,c) == (0,0)                   = [[0,0,0,0],[0,0,0,1]] -- we know (e,g) /=0, so denom -> \infty
+                              | (a,b) == (0,0) && (e,f) == (0,0) = [[0,0,0,(signum c)*infinity],[0,0,0,signum h]] -- no x terms in matrix, constant denominator
+                              | otherwise                        = [[0,0,0,-infinity],[0,0,0,1]] -- use -infinity to denote invalid result of div by zero
 
 -- when we know that the next term of output is n, the matrix representing the rest of the output
 -- is (numerator/denominator - n)^{-1}
@@ -94,7 +113,7 @@ gosper x y curM  | low == hi  = (termToBound hi):(gosper x y (produce hi curM)) 
                               where (low,hi) = range curM
 
 notInf bn = bn /= (infinity%1,infinity%1)
-arithCF_ initialMatrix x y = (takeWhile notInf (gosper x y initialMatrix) )
+arithCF_ initialMatrix x y = takeWhile notInf (gosper (tail_ x) (tail_ y) (ingestY (head_ y) (ingestX (head_ x) initialMatrix)))
 
 {-
  - turn continued fractions into a type with operator overloading
@@ -316,7 +335,6 @@ cfSqrtIter mat x | all (==0) (m!!1) = [] -- have reached end of computing ration
 -- negative fixpoint means y -> \infty as x -> \infty; see cfAlgorithm.tex
 checkForNegFixpoint (w,x) (y,z) = if minAll > 0 then (minAll, maxAll) else (maxAll, infinity%1)
                                     where (minAll, maxAll) = (min w y, max x z) -- the normal case
-
 
 {- 
  - implement Taylor series for exp(x)
