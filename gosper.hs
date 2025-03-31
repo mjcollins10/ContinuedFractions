@@ -83,8 +83,8 @@ substituteY (lo,hi) [[a,b,c,d],[e,f,g,h]] | all (==0) [a,c,e,g] = [[0,b,0,d],[0,
 
 -- deal with various special cases of computing limits as x or y approaches infinity
 limXinf [[a,b,c,d],[e,f,g,h]] | (a,b) /= (0,0) && (e,f) /= (0,0) = [[0,0,a,b],[0,0,e,f]] -- limit of (axy+bx)/(exy+fx) as x -> \infty
-                              | (a,c) == (0,0)                   = [[0,0,0,0],[0,0,0,1]] -- we know (e,f) \=0, so denom -> \infty
-                              | (a,b) == (0,0) && (e,f) == (0,0) = [[0,0,0,(signum b)*infinity],[0,0,0,signum h]] -- no y terms in matrix, constant denominator
+                              | (a,b) == (0,0)                   = [[0,0,0,0],[0,0,0,1]] -- we know (e,f) \=0, so denom -> \infty
+                              | (a,c) == (0,0) && (e,g) == (0,0) = [[0,0,0,(signum b)*infinity],[0,0,0,signum h]] -- no y terms in matrix, constant denominator
                               | otherwise                        = [[0,0,0,-infinity],[0,0,0,1]] -- use -infinity to denote invalid result of div by zero
 
 limYinf [[a,b,c,d],[e,f,g,h]] | (a,c) /= (0,0) && (e,g) /= (0,0) = [[0,a,0,c],[0,e,0,g]] -- limit of (axy+cy)/(exy+gy) as y -> \infty
