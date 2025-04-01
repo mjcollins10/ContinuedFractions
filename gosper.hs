@@ -7,12 +7,13 @@ import Data.Ratio -- get (%) operator for rational arithmetic
 
 termToBound n =  (n%1, (n+1)%1) -- generalized internal representation of CF term n
 -- a bound of the form (n,n+1) gives us n as the next CF term
-isTerm (lo,hi) = (denominator lo == 1) && (denominator hi == 1) && ((numerator hi == 1 + numerator lo) || (numerator lo == infinity))
+isTerm (lo,hi) = (denominator lo == 1) && (denominator hi == 1) && (hi == 1 + lo || lo == ratInfinity)
 infinity :: Integer
 infinity = 999999999999
+ratInfinity = infinity%1
 epsDefault = 1%(2^32) -- default threshold for 'equality'
 nobound = (1%1, infinity%1)
-pmInfinity = (-infinity%1, infinity%1) 
+pmInf = (-infinity%1, infinity%1) 
 
 -- range_ is min,max of *integer part* of bihomomorphic matrix (axy + bx +cy + d)/(exy + fx + gy + h)
 -- as x,y vary independently from *zero* to infinity
@@ -27,7 +28,7 @@ range_ [numr,denr] | any (>0) denr && any (<0) denr && any (/= 0) numr = (-infin
                                    fromIntegral (maximum [ getmax adj n d | (n,d) <- zip numr denr , (n,d) /= (0,0) ]) )
                                       where adj = if all (<= 0) denr && any (<0) denr then (-1) else 1 -- negative as denominator approaches zero
 
-ratRange_ [numr,denr] | any (>0) denr && any (<0) denr && any (/= 0) numr = pmInfinity -- sign change in denominator
+ratRange_ [numr,denr] | any (>0) denr && any (<0) denr && any (/= 0) numr = pmInf -- sign change in denominator
                       | otherwise = ( minimum [ getrat adj n d | (n,d) <- zip numr denr , (n,d) /= (0,0) ],
                                       maximum [ getrat adj n d | (n,d) <- zip numr denr , (n,d) /= (0,0) ] )
                                       where adj = if all (<= 0) denr && any (<0) denr then (-1) else 1 -- negative as denominator approaches zero
@@ -60,7 +61,7 @@ substituteX (lo,hi) [[a,b,c,d],[e,f,g,h]] | all (==0) [a,b,e,f]   = [[0,0,c,d],[
                                           | n == infinity         = limXinf [[a,b,c,d],[e,f,g,h]]
                                           | hi >= (infinity%1)    = [[q_*a, q_*b, n_*a+q_*c, q_*d+n_*b], -- x <- lo - 1 + x
                                                                      [q_*e, q_*f, n_*e+q_*g, q_*h+n_*f]]
-                                          | (lo,hi) == pmInfinity = [[-a, -b, 2*a, 2*b],[-e, -f, 2*e, 2*f]] -- will this ever happen?
+                                          | (lo,hi) == pmInf      = [[-a, -b, 2*a, 2*b],[-e, -f, 2*e, 2*f]] -- will this ever happen?
                                           | otherwise             = [[n*a*s + c*q*s, n*b*s + d*q*s, a*q*r, b*q*r],
                                                                      [n*e*s + g*q*s, n*f*s + h*q*s, e*q*r, f*q*r]]
                                               -- rewrite the bound (lo,hi) as (lo, delta)==(lo,hi-lo)
@@ -71,9 +72,9 @@ substituteX (lo,hi) [[a,b,c,d],[e,f,g,h]] | all (==0) [a,b,e,f]   = [[0,0,c,d],[
 substituteY (lo,hi) [[a,b,c,d],[e,f,g,h]] | all (==0) [a,c,e,g] = [[0,b,0,d],[0,f,0,h]] -- no y terms in matrix
                                           | (lo,hi) == nobound  = [[a,b,c,d],[e,f,g,h]] -- nothing changes
                                           | n == infinity       = limYinf [[a,b,c,d],[e,f,g,h]] 
-                                          | hi >= (infinity%1)    = [[q_*a, n_*a+q_*b, q_*c, q_*d+n_*c], -- y <- lo - 1 + y
-                                                                     [q_*e, n_*e+q_*f, q_*g, q_*h+n_*g]] 
-                                          | (lo,hi) == pmInfinity = [[-a, 2*a, -c, 2*c],[-e, 2*e, -g, 2*f]] 
+                                          | hi >= (infinity%1)  = [[q_*a, n_*a+q_*b, q_*c, q_*d+n_*c], -- y <- lo - 1 + y
+                                                                   [q_*e, n_*e+q_*f, q_*g, q_*h+n_*g]] 
+                                          | (lo,hi) == pmInf    = [[-a, 2*a, -c, 2*c],[-e, 2*e, -g, 2*f]] 
                                           | otherwise           = [[n*a*s + b*q*s, a*q*r, n*c*s + d*q*s, c*q*r],
                                                                    [n*e*s + f*q*s, e*q*r, n*g*s + h*q*s, g*q*r]]
                                               -- rewrite the bound (lo,hi) as (lo, delta)==(lo,hi-lo)
@@ -113,7 +114,7 @@ gosper x y curM  | low == hi  = (termToBound hi):(gosper x y (produce hi curM)) 
                               where (low,hi) = range curM
 
 notInf bn = bn /= (infinity%1,infinity%1)
-arithCF_ initialMatrix x y = takeWhile notInf (gosper (tail_ x) (tail_ y) (ingestY (head_ y) (ingestX (head_ x) initialMatrix)))
+arithCF_ initM x y = takeWhile notInf (gosper (tail_ x) (tail_ y) (ingestY (head_ y) (ingestX (head_ x) (initM, pmInf, pmInf))))
 
 {-
  - turn continued fractions into a type with operator overloading
@@ -127,10 +128,10 @@ newtype CF = MakeCF_ { getCF_ :: [(Ratio Integer, Ratio Integer)] }
 makeCF terms = MakeCF_ (map termToBound terms)
 
 -- matrix initializations for arithmetic
-addCF_ = arithCF_ ( [[0,1,1,0],[0,0,0,1]],  pmInfinity, pmInfinity )
-subCF_ = arithCF_ ( [[0,1,-1,0],[0,0,0,1]], pmInfinity, pmInfinity )
-mulCF_ = arithCF_ ( [[1,0,0,0],[0,0,0,1]],  pmInfinity, pmInfinity )
-divCF_ = arithCF_ ( [[0,1,0,0],[0,0,1,0]],  pmInfinity, pmInfinity )
+addCF_ = arithCF_  [[0,1,1,0],[0,0,0,1]]
+subCF_ = arithCF_  [[0,1,-1,0],[0,0,0,1]]
+mulCF_ = arithCF_  [[1,0,0,0],[0,0,0,1]]
+divCF_ = arithCF_  [[0,1,0,0],[0,0,1,0]]
 
 instance Num CF where
   fromInteger n  = makeCF [n]
@@ -181,7 +182,7 @@ fracEval []     = fromIntegral infinity
 fracEval (a:[]) = a
 fracEval (a:as) = a + 1/(fracEval as)
 
-ratEval []     = infinity % 1
+ratEval []     = ratInfinity
 ratEval (a:[]) = a % 1
 ratEval (a:as) = (a%1) + 1/(ratEval as)
 
@@ -205,7 +206,7 @@ removeRedundantBounds (cf, bd:bds) | isTerm $ last cf = (cf              ++ [bd]
 -- get upper and lower bounds on value of a *finite* continued fraction
 -- cf is generated by iterating 'removeRedundantBounds' on a potentially infinite list of bounds
 -- cf might end with an arbitrary bound; otherwise bounds look like (n,n+1)
-lowerUpper [] = pmInfinity
+lowerUpper [] = pmInf
 lowerUpper cf = inOrder (fracEval cfLo, fracEval cfHi)
              where cfStart = map fst (init cf) -- a list of integer terms
                    cfLo = cfStart ++ [fst $ last cf] -- eval using lowest possible value for tail of continued fraction
@@ -218,7 +219,7 @@ delta cf = hi - lo
 -- evaluate CF up to given accuracy
 extractFiniteCF_ eps (MakeCF_ bounds) = head (dropWhile (unfinished (toRational eps)) reducedPrefixes) -- return first sufficient approximation
                                          where reducedPrefixes = map fst (iterate removeRedundantBounds ([], validBounds))
-                                               validBounds = filter (/= pmInfinity) bounds
+                                               validBounds = filter (/= pmInf) bounds
 -- current finite view of cf is unfinished if value is not yet bounded tightly enough
 unfinished eps cf = (delta cf) > eps
 
@@ -366,21 +367,21 @@ taylor n x = 1 + x + (sum [(x^k)/(fromIntegral $ factorial k) | k <- [2..n]])
 -- note these need not be nested
 getIntervals (MakeCF_ bounds) = map lowerUpper reducedPrefixes 
                                    where reducedPrefixes = map fst (iterate removeRedundantBounds ([], validBounds))
-                                         validBounds = filter (/= pmInfinity) bounds
+                                         validBounds = filter (/= pmInf) bounds
 -- expand intervals with error term
 widen eps (lo, hi) = (lo-eps, hi+eps)
 -- given a sequence of nested intervals whose intersection contains x, extract CF expansion of x
 extractNested_ _ [] = []
 extractNested_ (lo, hi) ((lo_, hi_):as) = nextInterval:(extractNested_ nextInterval as)
                                             where nextInterval = (max lo lo_, min hi hi_)
-extractNested intervals = extractNested_ pmInfinity intervals
+extractNested intervals = extractNested_ pmInf intervals
 
 -- intervalsToCF assumes nested input
 determinesNextTerm (lo,hi) = isTerm (lo,hi) || (floor lo) == (floor hi)
 intervalToTerm     (lo,hi) = floor lo
 intervalsToCF_ _ [] = []
 -- mat extracts the terms we already know; i.e. if the interval (lo,hi) tell us that the next term is 3,
--- the following therm comes from the interval (1/(hi-3), 1/(lo-3)) et cetera
+-- the following term comes from the interval (1/(hi-3), 1/(lo-3)) et cetera
 -- must generate ambiguous terms since we cannot guarantee there will ever be an unambiguous bound
 intervalsToCF_ mat (b:bs) = if determinesNextTerm transformedInterval 
                             then (termToBound nextTerm):(intervalsToCF_ newmat (b:bs)) 
@@ -395,7 +396,7 @@ intervalsToCF intervals = MakeCF_ ( intervalsToCF_ [[1,0], [0,1]] intervals )
 taylorIntervals deg x = getIntervals (taylor deg x)
 taylorApproximations deg x = extractNested $ map (widen (errorTerm deg)) (taylorIntervals deg x)
 wide deg (lo,hi) = hi - lo > 3*(errorTerm deg) -- width is always at least 2*error
--- when error term becomes larger than uncertainty in computing polynomial, move to higer degree
+-- when error term becomes larger than uncertainty in computing polynomial, move to higher degree
 -- but always take at least one
 taylorApproxLimited deg x = (head aprxmtns):(takeWhile (wide deg) (tail aprxmtns))
                              where aprxmtns = taylorApproximations deg x
