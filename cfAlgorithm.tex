@@ -310,14 +310,19 @@ with the analogous
 \mbox{ingest\_y}(s, \abcd) = \bihomographic{(sa+b)}{a}{(sc+d)}{c}{(se+f)}{e}{(sg+h)}{g}
 \]
 for the result of substituting $y \leftarrow s + 1/y$.
-If one or both inputs are rational, we will eventually ingest infinity, which we define by taking the limit:
+
+If one or both inputs are rational, we will eventually ingest infinity, which we define by taking the limit. In most cases
 \[
 \mbox{ingest\_x}(\infty, \abcd) = \bihomographic{0}{0}{a}{b} {0}{0}{e}{f}
 \]
 \[
 \mbox{ingest\_y}(\infty, \abcd) = \bihomographic{0}{a}{0}{c}{0}{e}{0}{g}
-\] 
-
+\]
+except that this definition of $\mbox{ingest\_x}$ is valid only when the numerator and denominator both contain $x$ terms
+(i.e. only if $a,b$ are not both zero and $e,f$ are not both zero), with an analogous requirement for $\mbox{ingest\_y}$.
+If the matrix is of the form $\frac{bx+d}{fy+h}$ then the limit as $x \to \infty$ is infinity, %(with a similar observation for $\frac{cy+d}{h}$),
+and the limit as $y \to \infty$  is zero. 
+For some bihomographic matrices the limit is not an expression of the same type, but this only occurs when we divide by zero; see section \ref{sec:anomalous}.
 
 \begin{figure}\label{fig:twoCFarithPrelim}
 \begin{algorithmic}
@@ -339,7 +344,8 @@ If one or both inputs are rational, we will eventually ingest infinity, which we
 \caption{Preliminary algorithm for arithmetic on two CFs}
 \end{figure}
 
-We now have a preliminary algorithm for arithmetic; this will in fact require substantial modification, but we include it as a summary
+We now have a preliminary algorithm for arithmetic, which is essentially the original algorithm of Gosper in more explicit notation. 
+This algorithm will in fact require substantial modification, but we include it as a summary
 of the key ideas. It is not much different from the single-CF case. Computations of $x+y, x-y,xy$, and $x/y$ begin with matrices
 $\bihomographic{0}{1}{1}{0}{0}{0}{0}{1}, \bihomographic{0}{1}{-1}{0}{0}{0}{0}{1},
 \bihomographic{1}{0}{0}{0}{0}{0}{0}{1}$ and $\bihomographic{0}{1}{0}{0}{0}{0}{1}{0}$.
@@ -350,6 +356,24 @@ more quickly. This appears to be a worthwhile subject for further work.
 
 It is interesting that the algorithms for all arithmetic operations are identical, except for the initial $M$. The reason, one might say, is
 that division is the hardest arithmetic operation, and the definition of continued fractions has division built-in to everything.
+
+
+\subsection{Division by Zero}\label{sec:anomalous}
+The limit of $\frac{axy + bx + cy + d}{exy + fx + gy + h}$ as $x$ or $y$ approaches infinity is not necessarily a homographic matrix; for example
+\[
+\lim_{y \to \infty} \frac{y}{x-3} = \begin{cases}
+                                                          +\infty & \mbox{if } x > 3 \\
+                                                          \mbox{undefined} & \mbox{if } x=3 \\
+                                                          -\infty & \mbox{if } x < 3
+                                                         \end{cases}
+\]
+But ingesting infinity can only mean that we have reached the end of a finite rational input $\mathbf{y}$. At a previous step we
+must have ingested a term $\alpha$. The previous matrix, which generated $\frac{y}{x-3}$ by substituting $y \leftarrow \alpha + 1/y$, can be found by applying the inverse substitution $y \leftarrow 1/(y-\alpha)$ to get
+\[
+\frac{1}{(y-\alpha)(x-3)} = \frac{1}{xy - \alpha x -3y +3\alpha}
+\]
+which means we are trying to divide by zero; the invalid computation is revealed by the anomalous limit.
+Examination of cases shows that such anomalous limits can only arise from division by zero.
 
 
 \subsection{Failure to Converge}
@@ -490,26 +514,13 @@ The range of $M$ subject to the bounds will be the min and max of
 assuming no sign change in the denominator as $x'$ goes from 0 to infinity; fractions with numerator and denominator both $0$ can be ignored.
 
 
-\subsection{Possible Optimizations of the CF Arithmetic Algorithm}
-\subsubsection{Winnowing Interval Sequences}
-When we have to ingest the next interval from $x$ or $y$, and we see an ambiguous interval at the head of the list, it is not necessary
-to ingest that interval; we may skip it and go on to the next element of the list, which will give a tighter bound on the next term.
-Any such heuristic must guarantee that, given an infinite list of ambiguous input intervals, we eventually ingest something. Similarly, the
+\subsection{Possible Optimization}
+When we have to read the next interval from $x$ or $y$, and we see an ambiguous interval at the head of the list, it is not necessary
+to use that interval; we may skip it and go on to the next element of the list, which will give a tighter bound on the next term.
+Any such heuristic must guarantee that, given an infinite list of ambiguous input intervals, we eventually read something
+and recompute the range of $M$. Similarly, the
 algorithm does not need to output every ambiguous interval of $z$; but  we must guarantee that we eventually output something,
-even if we are generating an infinite list of ambiguous intervals. The most obvious idea is to read and produce ambiguous intervals only if the gap is smaller than some threshold.
-
-\subsubsection{Taming Large Coefficients}
-If a high degree of accuracy is required, the coefficients of $M$ may grow very large; performing rational arithmetic on arbitrarily
-large integers will incur a performance penalty. We might be able to take advantage of the fact that we do not require the tightest
-possible bounds on the next term; the only requirement for correctness is that the bounds converge to the correct value. We might
-divide every coefficient of $M$ by some large integer $k$, rounding each result up or down in whichever direction slightly widens the
-range of $M$. We might do the same with intervals whose numerators and denominators are very large. To guarantee convergence,
-we must never make an adjustment which makes a new bound weaker than the current bound.
-
-Any such decision to ``simplify" $M$ must consider the gap between the upper and lower bounds of $M$; if the gap is large relative
-to the reciprocals of the coefficients, we might be carrying too many digits. However, with lazy evaluation, all computations
-are driven by how much accuracy we need; if the gap is small, yet we are still continuing the computation, it means that we need
-even tighter bounds. In such cases large coefficients might be unavoidable.
+even if we are generating an infinite list of ambiguous intervals. The most obvious idea is to read and generate ambiguous intervals only if the gap is smaller than some threshold.
 
 
 \section{Solving Quadratic Equations}
