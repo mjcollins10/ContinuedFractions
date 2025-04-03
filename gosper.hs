@@ -358,10 +358,19 @@ tooWide (lo, hi) = hi > lo + 1
 getInt (lo, hi) = if isTerm (lo,  hi) then (numerator lo) else floor hi
 
 -- error term for Taylor polynomial of degree n, assuming abs x <= 1
-errorTerm n = if n < 2 then (3%2) else 3%(factorial (n+1))
-factorial n = if n < 3 then n else factIter 1 n
-factIter k m  = if m == 2 then (2*k) else  factIter (k*m) (m-1)
-taylor n x = 1 + x + (sum [(x^k)/(fromIntegral $ factorial k) | k <- [2..n]])
+errorTerm n = 3%(product [1..n+1])
+-- represent Taylor polynomial as composition of bihomographic matrices
+m n x y = arithCF_ [[1,0,0,n],[0,0,0,n]] x y -- 1 + x*y/n
+funcs x = [m n x | n <- [1..]]
+compose = foldr (.) id
+-- ordinary take has type Int -> [a] -> [a], which is problematic
+take_ _ [] = []
+take_ 0 _  = []
+take_ k (a:as) = a:(take_ (k-1) as)
+-- optimized implementation of 1 + x + (sum [(x^k)/(fromIntegral $ (product [1..k])) | k <- [2..n]]) 
+-- write as 1 + x*( 1 + (x/2)*( 1 + (x/3)* ...
+taylor n x = MakeCF_ $ compose (take_ n (funcs (getCF_ x))) $ (getCF_ (makeCF [1]))
+
 
 -- given a CF representation of a real number x, get a sequence of intervals converging to x
 -- note these need not be nested
