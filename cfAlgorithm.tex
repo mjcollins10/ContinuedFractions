@@ -42,12 +42,12 @@ We have implemented these algorithms in Haskell.
 \maketitle
 
 \section{Introduction}
-A continued fraction is a (possibly infinite) expression of the form
+A simple continued fraction is a (possibly infinite) expression of the form
 \begin{equation*}
 a_0+\cfrac{1}{a_1+\cfrac{1}{a_2+\cfrac{1}{a_3+\cdots}}}
 \end{equation*}
-where the terms $a_i$ are integers, with $a_i$ positive when $i>0$. It is written more compactly as $[a_0, a_1, \cdots]$. The
-properties of continued fractions are very well-known\footnote{\href{https://en.wikipedia.org/wiki/Simple\_continued\_fraction}{https://en.wikipedia.org/wiki/Simple\_continued\_fraction}},
+where the terms $a_i$ are integers. It is written more compactly as $[a_0, a_1, \cdots]$. Here we consider only \emph{regular} simple continued fractions, which means $a_i \geq 1$ when $i>0$. The
+properties of continued fractions, and the motivations for studying them, are very well-known\footnote{\href{https://en.wikipedia.org/wiki/Simple\_continued\_fraction}{https://en.wikipedia.org/wiki/Simple\_continued\_fraction}},
 so here we only remind the reader of some notation we will use:
 \begin{itemize}
 \item A quadratic irrational has a periodic CF expansion. We denote the periodic part by putting it in parentheses,
@@ -79,7 +79,7 @@ the terms of $px/q$ or $x + p/q$, even in the apparently simplest cases:
 As a motivating example for the general algorithm, we compute
 \[[y_0,y_1,y_2 \cdots] = \pi/2 = 1.5707963267948966\cdots\ .
 \]
-It will be convenient to have notation for the ``tail" of a continued fraction, so let
+Let $\pi = [\pi_0,\pi_1,\cdots]$ (in general we use $x_i$ for the $i^{\mbox {th}}$ CF term of a real number $x$). It will be convenient to have notation for the ``tail" of a continued fraction, so let
 \[
 r_i = [\pi_{i+1}, \pi_{i+2},\cdots]\ .
 \]
@@ -150,7 +150,7 @@ so we define
 \mbox{produce}(k,\pqrs) = \homographic{r}{s}{p-kr}{q-ks}\ .
 \]
 
-Note that if we started with rational $x$, we will eventually reach $x_i = \infty$; ingesting infinity returns the limit ${\left(
+If we started with rational $x$, we will eventually reach $x_i = \infty$; ingesting infinity returns the limit ${\left(
 \begin{smallmatrix} 
 0 & p\\ 
 0 & r
@@ -168,7 +168,7 @@ $M=\left(\begin{smallmatrix}0 & 1 \\ 0 & 0\end{smallmatrix}\right)$, which we ma
 \STATE{$M \gets \pqrs$} \COMMENT{the initial matrix, i.e. the expression whose CF we will compute}
 \STATE{$M \gets \mbox{ingest}(x_0, M)$}
 \STATE{$i \gets 1$}
-\WHILE {$M \neq \infty$} 
+\WHILE {$M \neq \left(\begin{smallmatrix}0 & 1 \\ 0 & 0\end{smallmatrix}\right)$} 
 	\WHILE{$\mathcal{R}(M)$ is not a singleton}
                    \STATE{$M \gets \mbox{ingest}(x_i, M)$}
                    \STATE{$i \gets i+1$}
@@ -199,10 +199,10 @@ k & 0\\
 k & j\\ 
 0 & k 
 \end{smallmatrix}
-\right)$.
+\right)$. Note that computing an arbitrary homomorphic expression $\pqrs$ is no more difficult than a single arithmetic operation.
 
 
-\subsection{Properties of the Algorithm}
+\subsection{Proof of Termination}
 The outer loop ``while $M \neq \infty$" is an infinite loop if $\mathbf{x} = [\mathbf{x}_0, \mathbf{x}_1,\cdots]$ is irrational
 (here we use boldface $\mathbf{x}$ for the real-valued input, as distinct from the symbolic variable $x$ in the homographic
 expression). This can be implemented quite directly in a language like Haskell\footnote{\href{https://haskell.org}{haskell.org}} with
@@ -212,20 +212,30 @@ expression that defines the algorithm; the number of $y$ terms actually generate
 
 The inner loop ``while $\mathcal{R}(M)$ is not a singleton" \emph{is} guaranteed to terminate; we will never be in an infinite loop
 waiting for the next term. We have already observed that this loop terminates if $\mathbf{x}$ is rational, so assume it is irrational. As
-we iterate through this loop, we are repeatedly rewriting the initial $M = \pqrs$
+we iterate through the inner loop, we are repeatedly rewriting the initial $M = \pqrs$
 with $[\mathbf{x}_0, \cdots \mathbf{x}_i, x]$ in place of $x$. As $i$ goes to infinity, the upper and lower bounds on
 $[\mathbf{x}_0, \cdots \mathbf{x}_i, x]$ approach $\mathbf{x}$, so the upper and lower bounds of the matrix approach
 $\frac{p\mathbf{x}+q}{r\mathbf{x}+s}$.
-This limit is irrational, so eventually the bounding interval contains no integers; at this point $\mathcal{R}(M)$  will be a singleton
-(namely the common floor of all numbers in the interval), and we will produce a term.
-
+If this limit is irrational, eventually the bounding interval contains no integers; at this point $\mathcal{R}(M)$  will be a singleton
+(namely the common floor of all numbers in the interval), and we will produce a term. The limit is rational only in the degenerate case
+of
+\[
+\frac{p\mathbf{x}+q}{r\mathbf{x}+s} = \frac{na\mathbf{x}+nb}{da\mathbf{x}+db}
+\]
+but in that case we will immediately produce $\lfloor \frac{n}{d} \rfloor$ as the next term,
+and the next iteration will have $M =\left(
+\begin{smallmatrix} 
+0 & j\\ 
+0 & k 
+\end{smallmatrix}
+\right)$, where $\frac{j}{k} = 1/(\frac{n}{d}  -\lfloor \frac{n}{d} \rfloor)$, or $M = \left(\begin{smallmatrix}0 & 1 \\ 0 & 0\end{smallmatrix}\right)$ if $\frac{n}{d}$ is an integer.
 
 \subsection{Visualizing the Algorithm}
 Since $\mbox{ingest}(k,\pqrs)$ returns a matrix whose right column is
 $\left( \begin{smallmatrix} p \\  r \end{smallmatrix}\right)$,
 and $\mbox{produce}(k,\pqrs)$ returns a matrix whose top row is $(r\ s)$, we can visualize the progress of the algorithm
 as moving a $2 \times 2$ window through a two-dimensional grid of integers.
-We start with $M$ in the upper right corner; \emph{ingest} moves left and \emph{produce} moves down.
+We start with $M$ in the upper right corner; ingest moves left and produce moves down.
 We put the $x_i$ on the top row, at the positions where we ingest, and $y_j$ in the right column, at the positions where we produce.
 Here is such a representation of our earlier example of $\pi/2$, taken further to use $\pi = [3,7,15, 1\cdots]$ to obtain $\pi/2 = [1,1,1,3,31,\cdots]$.
 
@@ -267,7 +277,7 @@ into which we can substitute  $[\pi_2,\cdots]=15+\frac{1}{[\pi_3,\cdots]},  [y_2
 Similarly, the product $\pi\sqrt{2}=4.442882938158366\cdots$ is
 \begin{equation*}
 (3 + \frac{1}{[\pi_1,\cdots]})(1 + \frac{1}{[y_1\cdots]}) 
-  = \frac{ 3[\pi_1,\cdots][y_1\cdots] + 3[\pi_1,\cdots] + [y_1\cdots] +1 }{[\pi_1,\cdots][y_1\cdots] }\ .
+  = \frac{ 3[\pi_1,\cdots][y_1\cdots] + 3[\pi_1,\cdots] + [y_1\cdots] +1 }{[\pi_1,\cdots][y_1\cdots] }
 \end{equation*}
 into which we can make the same substitutions. 
 

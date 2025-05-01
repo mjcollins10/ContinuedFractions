@@ -96,6 +96,7 @@ limYinf [[a,b,c,d],[e,f,g,h]] | (a,c) /= (0,0) && (e,g) /= (0,0) = [[0,a,0,c],[0
 -- when we know that the next term of output is n, the matrix representing the rest of the output
 -- is (numerator/denominator - n)^{-1}
 produce n ([num, den], boundX, boundY) = ( [den, [j-n*k | (j,k) <- zip num den]], boundX, boundY )
+prod n [num, den]  =  [den, [j-n*k | (j,k) <- zip num den]]
 
 -- finite (i.e. rational) CF is implicitly terminated by infinite list of infinite terms
 head_ [] = (infinity%1, infinity%1)
