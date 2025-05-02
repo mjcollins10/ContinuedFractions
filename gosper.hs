@@ -360,55 +360,9 @@ getInt (lo, hi) = if isTerm (lo,  hi) then (numerator lo) else floor hi
 
 -- error term for Taylor polynomial of degree n, assuming abs x <= 1
 errorTerm n = 3%(product [1..n+1])
--- represent Taylor polynomial as composition of bihomographic matrices
-m n x y = arithCF_ [[1,0,0,n],[0,0,0,n]] x y -- 1 + x*y/n
-funcs x = [m n x | n <- [1..]]
-compose = foldr (.) id
--- ordinary take has type Int -> [a] -> [a], which is problematic
-take_ _ [] = []
-take_ 0 _  = []
-take_ k (a:as) = a:(take_ (k-1) as)
--- optimized implementation of 1 + x + (sum [(x^k)/(fromIntegral $ (product [1..k])) | k <- [2..n]]) 
--- write as 1 + x*( 1 + (x/2)*( 1 + (x/3)* ...
-taylor n x = MakeCF_ $ compose (take_ n (funcs (getCF_ x))) $ (getCF_ (makeCF [1]))
-
-
--- given a CF representation of a real number x, get a sequence of intervals converging to x
--- note these need not be nested
-getIntervals (MakeCF_ bounds) = map lowerUpper reducedPrefixes 
-                                   where reducedPrefixes = map fst (iterate removeRedundantBounds ([], validBounds))
-                                         validBounds = filter (/= pmInf) bounds
--- expand intervals with error term
-widen eps (lo, hi) = (lo-eps, hi+eps)
--- given a sequence of nested intervals whose intersection contains x, extract CF expansion of x
-extractNested_ _ [] = []
-extractNested_ (lo, hi) ((lo_, hi_):as) = nextInterval:(extractNested_ nextInterval as)
-                                            where nextInterval = (max lo lo_, min hi hi_)
-extractNested intervals = extractNested_ pmInf intervals
-
--- intervalsToCF assumes nested input
-determinesNextTerm (lo,hi) = isTerm (lo,hi) || (floor lo) == (floor hi)
-intervalToTerm     (lo,hi) = floor lo
-intervalsToCF_ _ [] = []
--- mat extracts the terms we already know; i.e. if the interval (lo,hi) tell us that the next term is 3,
--- the following term comes from the interval (1/(hi-3), 1/(lo-3)) et cetera
--- must generate ambiguous terms since we cannot guarantee there will ever be an unambiguous bound
-intervalsToCF_ mat (b:bs) = if determinesNextTerm transformedInterval 
-                            then (termToBound nextTerm):(intervalsToCF_ newmat (b:bs)) 
-                            else    transformedInterval:(intervalsToCF_ mat     bs) -- ambiguous bound in CF
-                               where [[p,q],[r,s]] = mat
-                                     (lo, hi) = b
-                                     transformedInterval = inOrder (evalMatRat mat hi, evalMatRat mat lo)
-                                     nextTerm = intervalToTerm transformedInterval
-                                     newmat = [[r, s], [p - nextTerm*r, q - nextTerm*s]] -- x <- 1/(x-nextTerm)
-intervalsToCF intervals = MakeCF_ ( intervalsToCF_ [[1,0], [0,1]] intervals )
-
-taylorIntervals deg x = getIntervals (taylor deg x)
-taylorApproximations deg x = extractNested $ map (widen (errorTerm deg)) (taylorIntervals deg x)
-wide deg (lo,hi) = hi - lo > 3*(errorTerm deg) -- width is always at least 2*error
--- when error term becomes larger than uncertainty in computing polynomial, move to higher degree
--- but always take at least one
-taylorApproxLimited deg x = (head aprxmtns):(takeWhile (wide deg) (tail aprxmtns))
-                             where aprxmtns = taylorApproximations deg x
-cfExp_ x = intervalsToCF (extractNested $ concat [taylorApproxLimited deg x | deg <- [4..]])
+-- n^{th} degree taylor polynomial is composition of mat 1, mat 2, ... mat n
+mat n = [[1,0,0,n],[0,0,0,n]] -- 1 + xy/n
+expIter n x = (1 - (errorTerm n)/(n%1), 1 + (errorTerm n)/(n%1)):(arithCF_ (mat n) x (expIter (n+1) x))
+-- this is correct only when abs x <= 1
+cfExp_ (MakeCF_ x) = MakeCF_ (expIter 1 x)
 
