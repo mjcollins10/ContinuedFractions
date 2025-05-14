@@ -359,10 +359,43 @@ tooWide (lo, hi) = hi > lo + 1
 getInt (lo, hi) = if isTerm (lo,  hi) then (numerator lo) else floor hi
 
 -- error term for Taylor polynomial of degree n, assuming abs x <= 1
-errorTerm n = 3%(product [1..n+1])
+-- errorTerm n = 3%(product [1..n+1])
 -- n^{th} degree taylor polynomial is composition of mat 1, mat 2, ... mat n
 mat n = [[1,0,0,n],[0,0,0,n]] -- 1 + xy/n
-expIter n x = (1 - (errorTerm n)/(n%1), 1 + (errorTerm n)/(n%1)):(arithCF_ (mat n) x (expIter (n+1) x))
+expIter n x = (1 - 2%(3*n), 1 + 2%n):(arithCF_ (mat n) x (expIter (n+1) x))
 -- this is correct only when abs x <= 1
 cfExp_ (MakeCF_ x) = MakeCF_ (expIter 1 x)
+
+-- Taylor series for log(1+x)/x
+logMat n = [[-n,0,0,1],[0,0,0,n]] -- (1/n) - xy
+logMatInv n = [[0,0,0,n],[-n,0,0,1]] -- 1/M_(x,n)(y)
+logMatProd01 n = [[-n,0,0,1],[n,0,0,n-1]]
+-- error bound valid for 0 <= x <= 1
+-- logIter n x = (1%(n*n+n), 1%n):(arithCF_ (logMat n) x (logIter (n+1) x))
+-- we know that matrix will be nonnegative
+nonPositive (lo,hi) = lo < 0
+positive (lo,hi) = lo >= 0
+logIter n x | n > 1 = (termToBound 0):(n%1, (n*n+n)%1):(filter positive (arithCF_ (logMatInv n) x (logIter (n+1) x)))
+            | otherwise = (termToBound 0):(termToBound 1):(filter positive (arithCF_ (logMatProd01 n) x (logIter (n+1) x)))
+
+cfShiftLog_ (MakeCF_ x) = MakeCF_ (logIter 1 x)
+-- z = 1 + x so 1 <= z <= 2
+cfLog_ z = (z - 1)*(cfShiftLog_ (z - 1))
+cfLog2 = cfLog_ 2
+cfLog z | z > 2 = cfLog2 + (cfLog (z/2))
+        | z < 1 = -(cfLog (1/z))
+        | otherwise = cfLog_ z
+
+viewInterval (lo, hi) | isTerm (lo,hi) = (fromRational lo, fromRational (0%1))
+                      | otherwise      = (fromRational lo, fromRational (hi-lo))
+view (MakeCF_ x) = map viewInterval x
+view_ x = map viewInterval x
+
+z = makeCF [1,3]
+x = z-1
+xx = makeCF [0,3]
+slxx = cfShiftLog_ xx
+slxxTerms = view slxx
+slx = cfShiftLog_ x
+slxTerms = view slx
 
