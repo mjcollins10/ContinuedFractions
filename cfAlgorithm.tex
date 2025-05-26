@@ -37,7 +37,7 @@ e & f & g & h
 
 \begin{abstract}
 Gosper  developed algorithms for adding, subtracting, multiplying, or dividing two continued fractions (CFs), and for solving quadratics with CF coefficients,
-getting a CF as the result. Straightforward implementation of these algorithms leads to infinite loops; here we present a modified version of Gosper's arithmetic algorithm and prove that it avoids all difficulties with infinite loops. We then extend the arithmetic algorithm in a natural way to compute Taylor series over CFs.
+getting a CF as the result. Straightforward implementation of these algorithms leads to infinite loops; here we present a modified version of Gosper's arithmetic algorithm and prove that it avoids all difficulties with infinite loops. We then extend the arithmetic algorithm in a natural way to compute exponential, log, and trig functions on CFs.
 We have implemented these algorithms in Haskell.
 \end{abstract}
 
@@ -64,13 +64,9 @@ the point of course is that we can do this entirely within the CF representation
 present modified versions of those algorithms and prove that these modifications avoid all difficulties with infinite loops;
 any combination of arithmetic operations can be carried out to any required degree of accuracy in a finite number of steps.
 
-We then extend the arithmetic algorithm to compute Taylor series over CFs; i.e. to compute the CF expansion of 
-\[
-T(x) = \sum_{i=0}^{\infty} c_ix^i
-\]
-where $x$ is a continued fraction.
-Of course, if we can do arithmetic, we can already compute any $n^{th}$ degree Taylor polynomial $T_n(x) = c_0 + c_1x + \cdots + c_nx^n$, and use the error bound to determine how many initial CF terms of $T_n(x)$ match the initial terms of $T(x)$.
-We however develop an iterative algorithm which continually generates the CF terms of $T(x)$, always using precisely as much of the series (and as many terms of $x$) as is required to determine the next output term.
+We then extend the arithmetic algorithm to compute CF representations of $e^x, \log(x)$, and trigonometric functions of $x$, where $x$ is given as a CF. 
+Of course, since we can do arithmetic, we can compute any $n^{th}$ degree Taylor polynomial approximation of such functions to any degree of accuracy.
+We go further, developing an iterative algorithm which continually generates terms of the CF, always using precisely as much of the series (and as many terms of $x$) as is required to determine the next output term.
 
 We have implemented these algorithms
 in Haskell\footnote{\href{https://github.com/mjcollins10/ContinuedFractions}{https://github.com/mjcollins10/ContinuedFractions}}.
@@ -851,9 +847,18 @@ Computationally, this should be faster than direct application of the quadratic 
 
 \section{Arithmetic with Arbitrary Intervals}
 In the algorithm for CF arithmetic, all intervals are either ambiguous (i.e. there is an integer in the interior of the interval), or are of the form $[a,a+1)$ for integer $a$. But this potentially throws away information.
-Whenever we are able to produce an explicit output term $z_j \leftarrow [a,a+1)$, we in fact know that the tail lies in the possibly smaller interval $\rho(M,I_x, I_y)$, and can set $z_j \leftarrow \rho(M,I_x, I_y)$.
+Whenever we are able to produce an explicit output term $z_j \leftarrow [a,a+1)$, we in fact know that the tail 
+\[
+a + \frac{1}{[z_{j+1}, z_{j+2},\cdots]}
+\]
+lies in the possibly smaller interval $\rho(M,I_x, I_y)$, and can set $z_j \leftarrow \rho(M,I_x, I_y)$.
 
 If we generate such intervals as output then we must be able to read them as input. If $x_i = (a+\varepsilon_\ell, a+\varepsilon_u)$, we can ingest $x=a$ into $M$, and set $I_x \leftarrow (\varepsilon_u^{-1}, \varepsilon_\ell^{-1})$ instead of $I_x \leftarrow [1,\infty)$. This will yield a narrower range for $z_j$.
+
+In the same manner, suppose the current (ambiguous) bound on $x$ is $I_x = (x_{\ell}, x_{h})$, and we read an explicit term $x_i = [a,a+1)$. After ingesting $a$ into the matrix, we need not set $I_x = [1,\infty)$; we may set
+\[
+I_x = \left(\frac{1}{\min(x_h,a+1) - a}, \frac{1}{\max(x_{\ell},a) - a}\right) \ .
+\]
 
 Of course there is no guarantee that the more precise representation would give any computational advantage in practice, since more computation is required to manipulate the tighter bounds.
 
@@ -868,13 +873,10 @@ where $x$ is given as a CF. Let
 M_{(n,x)}(y) = 1 + \frac{xy}{n} \ .
 \]
 This is a bihomographic expression with matrix $\bihomographic{1}{0}{0}{n}{0}{0}{0}{n}$. The $n^{th}$ degree Taylor approximation,
-$T_n(x)=1 + x + \cdots x^n/{n!}$, can be written using Horner's rule as
+$1 + x + x^2/2 +\cdots + x^n/{n!}$, can be written using Horner's rule as
 \[
- 1 + x(1 + \frac{x}{2}( 1 + \frac{x}{3}(1 + \cdots (1 + \frac{x}{n}))\cdots ) = M_{(1,x)}( M_{(2,x)}( \cdots M_{(n,x)}(1) \cdots ) ) \ .
- \]
- Let us assume, temporarily, that $|x| \leq 1$.
- %Then the error for the $n^{th}$ degree approximation is bounded by $\frac{e^x}{n!} < \frac{3}{n!}$.
- Now define
+ 1 + x \left(1 + \frac{x}{2}\left( 1 + \frac{x}{3}\left(1 + \cdots \left(1 + \frac{x}{n}\right)\right)\right) \cdots \right) = M_{(1,x)}( M_{(2,x)}( \cdots M_{(n,x)}(1) \cdots ) ) \ . \]
+ Let us assume, temporarily, that $|x| \leq 1$. Now define
  \[
  y_n(x) = 1 + \frac{x}{n} + \frac{x^2}{n(n+1)} + \cdots = \lim_{m\to\infty} M_{(n,x)}( M_{(n+1,x)}( \cdots M_{(m,x)}(1) \cdots ) ) \ .
   \]
@@ -883,35 +885,41 @@ $T_n(x)=1 + x + \cdots x^n/{n!}$, can be written using Horner's rule as
  |y_n(x) - 1| \leq \frac{|e^x - 1|}{n} \ .
  \]
 Since $\frac{1}{3} < e^x < 3$, we know that $y_n(x)$ is in the interval $(1 - \frac{2}{3n}, 1 + \frac{2}{n})$, so this can be the first (necessarily ambiguous) term of the CF representation of $y_n(x)$.
-The subsequent terms are the CF representation of $M_{(n,x)}(y_{n+1}(x))$, which is a bihomographic expression that can be evaluated with the arithmetic algorithm. We then have $e^x = y_1(x)$. The infinite recursion does not lead to an infinite loop, since we can always get one term of $y_n(x)$ without recursion into $y_{n+1}(x)$.
+The subsequent terms are the CF representation of $M_{(n,x)}(y_{n+1}(x))$, which is a bihomographic expression that can be evaluated with the arithmetic algorithm. We then have $e^x = y_1(x)$. The infinite recursion does not lead to an infinite loop, since we can always get one term of $y_n(x)$ without recursion into $y_{n+1}(x)$; at some point this one term will be sufficient to determine the next output.
 
 If $|x|>1$, we could use the weaker bound $0 < e^x < 3^{\lceil x \rceil}$. Or we could take advantage of the fact that there is an explicit formula for the CF expansion of $e$:
 \[
 e = [1,2,1,1,4,1,1,6,1,1,8,1,1,10,1 \cdots ]
 \]
-and write $e^x$ as $e^{\lfloor x \rfloor}e^{x-\lfloor x \rfloor}$, using ordinary multiplication to obtain $e^{\lfloor x \rfloor}$. In either case, the floor or ceiling of $x$ can be obtained from the first CF term of $x$.
+and write $e^x$ as $e^{\lfloor x \rfloor}e^{x-\lfloor x \rfloor}$, using ordinary multiplication to obtain $e^{\lfloor x \rfloor}$. In either case, the floor or ceiling of $x$ can be obtained from a finite prefix of $x$.
 
-\subsection{Logarithms} We can apply the same approach to the logarithm
+
+\subsection{Logarithms} We can apply the same approach to $\log x$, using the series
 \[
-\log (1+x) = \sum_{n=1}^{\infty} (-1)^{n-1}\frac{x^n}{n} \ .
+\log (x) =  2 \left( \left(\frac{x-1}{x+1}\right) + \frac{1}{3}\left(\frac{x-1}{x+1}\right)^3 + \frac{1}{5}\left(\frac{x-1}{x+1}\right)^5 \cdots \right)
 \]
-It will be convenient to pull out a factor of $x$ and consider the series for $\log(1+x)/x$:
+which converges for all $x > 0$. Let $z=\frac{x-1}{x+1}$ and $w=z^2$, and define
 \[
-1 - \frac{x}{2} + \frac{x^2}{3} - \cdots \ .
+g(w) = 1 + \frac{w}{3} + \frac{w^2}{5} + \frac{w^3}{7} + \cdots = \left(1 + w\left(\frac{1}{3} + w\left(\frac{1}{5} \cdots \right. \right. \right. \ .
 \]
-In the same manner as the previous section, the series can be obtained by iterating
+Then $\log x = 2zg(w)$, so we only need consider how to compute $g(w)$, where $0 \leq w \leq 1$.
+In the same manner as the previous section, the series for $g(w)$ can be obtained by iterating
 \[
-M_{(n,x)}(y) = \frac{1}{n} - xy 
+M_{(n,w)}(y) = \frac{1}{2n-1} + wy 
 \]
-i.e. the bihomographic expression $\bihomographic{-n}{0}{0}{1}{0}{0}{0}{n}$.
+i.e. the bihomographic expression $\bihomographic{2n-1}{0}{0}{1}{0}{0}{0}{2n-1}$.
 So we define
 \[
-y_n(x) = \frac{1}{n} - \frac{x}{n+1} + \frac{x^2}{n+2} \cdots = \lim_{m\to\infty} M_{(n,x)}( M_{(n+1,x)}( \cdots M_{(m,x)}(1/m) \cdots ) ) \ .
+y_n(w) = \frac{1}{2n-1}  + \frac{w}{2n+1} + \frac{w^2}{2n+3} \cdots = \lim_{m\to\infty} M_{(n,w)}( M_{(n+1,w)}( \cdots M_{(m,w)}(1/2m+1) \cdots ) ) \ .
 \]
-If $0 < x < 1$, then $y_n(x)$ will be in the interval $(\frac{1}{n} - \frac{1}{n+1}, \frac{1}{n})$;
-again we can use this as the first term of the CF representation of $y_n(x)$, with the following terms being the CF terms of $M_{(n,x)}(y_{n+1}(x))$. Then $\log (1+x) = xy_1(x)$.
+Since $w$ is nonnegative, we know that $y_n(w) \geq \frac{1}{2n-1}$. The upper bound, however, goes to infinity as $w$ approaches 1, i.e. as $x$ approaches zero or infinity. So let us assume temporarily that $1<x<e$; then 
+\[
+|z| \leq \frac{e-1}{e+1} < \frac{3-1}{3+1} = \frac{1}{2}
+\]
+and $w < \frac{1}{4}$, implying $y_n(w) < \frac{4}{3(2n-1)}$.
+We can take $(\frac{1}{2n-1}, \frac{4}{3(2n-1)})$ as the first interval of the CF representation of $y_n(x)$, with the following intervals obtained by applying the CF arithmetic algorithm to $M_{(n,x)}(y_{n+1}(x))$.
 
-For other values of $x$  we can use the identities $\log(ab)=\log(a)+\log(b)$ and $\log(1/a) = -\log(a)$ to express $\log(1+x)$ in terms of CFs that we can compute directly. 
+For other values of $x$  we can use the identities $\log(x)=1+\log(x/e)$ and $\log(x) = -\log(1/x)$ . 
 
 \bibliographystyle{plain}
 \bibliography{cfAlgorithm}

@@ -8,12 +8,16 @@ import Data.Ratio -- get (%) operator for rational arithmetic
 termToBound n =  (n%1, (n+1)%1) -- generalized internal representation of CF term n
 -- a bound of the form (n,n+1) gives us n as the next CF term
 isTerm (lo,hi) = (denominator lo == 1) && (denominator hi == 1) && (hi == 1 + lo || lo == ratInfinity)
+boundToTerm (lo, hi) = numerator lo
 infinity :: Integer
 infinity = 999999999999
 ratInfinity = infinity%1
 epsDefault = 1%(2^32) -- default threshold for 'equality'
 nobound = (1%1, infinity%1)
 pmInf = (-infinity%1, infinity%1) 
+intersect (lo, hi) (lo_, hi_) = (max lo lo_, min hi hi_)
+-- given bounds on x, get bounds on x' where x = n + 1/x'
+invert n (lo, hi) = (1/(hi - n), if lo <= n then ratInfinity else 1/(lo-n))
 
 -- range_ is min,max of *integer part* of bihomomorphic matrix (axy + bx +cy + d)/(exy + fx + gy + h)
 -- as x,y vary independently from *zero* to infinity
@@ -45,13 +49,15 @@ ratRange (matrix, boundX, boundY) = ratRange_ (map shift matrixWithBounds)
                               where matrixWithBounds = (substituteY boundY (substituteX boundX matrix))
 
 -- if we know that the floor of x equals n, we can make the 
--- substitution x <- n + 1/x (and now x represents the next term of output);
+-- substitution x <- n + 1/x (and now x represents the tail of the input)
 -- otherwise just update bounds, leaving matrix the same; new bound will always be tighter
-ingestX termOrBound (matrix,boundX,boundY) | isTerm termOrBound = (substituteX termOrBound matrix , nobound, boundY)
-                                           | otherwise          = (matrix, termOrBound, boundY)
+ingestX interval (matrix,boundX,boundY) | isTerm interval = (substituteX interval matrix, invert n boundX, boundY)
+                                        | otherwise       = (matrix, intersect boundX interval, boundY)
+                                              where n = fst interval
 
-ingestY termOrBound (matrix,boundX,boundY) | isTerm termOrBound = (substituteY termOrBound matrix , boundX, nobound)
-                                           | otherwise          = (matrix, boundX, termOrBound)
+ingestY interval (matrix,boundX,boundY) | isTerm interval = (substituteY interval matrix, boundX, invert n boundY)
+                                        | otherwise       = (matrix, boundX, intersect boundY interval)
+                                              where n = fst interval
 
 -- transform bihomomorphic matrix (axy + bx +cy + d)/(exy + fx + gy + h)
 -- by substitution x <- n/q + r/(sx); i.e. x ranges from n/q to n/q + r/s
@@ -185,7 +191,8 @@ fracEval (a:as) = a + 1/(fracEval as)
 
 ratEval []     = ratInfinity
 ratEval (a:[]) = a % 1
-ratEval (a:as) = (a%1) + 1/(ratEval as)
+ratEval (a:as) = (a%1) + if theRest == ratInfinity  then 0 else 1/theRest
+                    where theRest = ratEval as
 
 -- convert a finite list of bounds to a finite list of terms
 display_ [] = []
@@ -210,8 +217,9 @@ removeRedundantBounds (cf, bd:bds) | isTerm $ last cf = (cf              ++ [bd]
 lowerUpper [] = pmInf
 lowerUpper cf = inOrder (fracEval cfLo, fracEval cfHi)
              where cfStart = map fst (init cf) -- a list of integer terms
-                   cfLo = cfStart ++ [fst $ last cf] -- eval using lowest possible value for tail of continued fraction
-                   cfHi = cfStart ++ [snd $ last cf] -- eval using highest possible value for tail of continued fraction
+                   lastTerm = last cf
+                   cfLo = cfStart ++ [fst lastTerm] -- eval using lowest possible value for tail of continued fraction
+                   cfHi = cfStart ++ [snd lastTerm] -- eval using highest possible value for tail of continued fraction
 inOrder (a,b) = if a < b then (a,b) else (b,a)
 -- get width of interval which must contain actual value
 delta cf = hi - lo
@@ -340,7 +348,6 @@ checkForNegFixpoint (w,x) (y,z) = if minAll > 0 then (minAll, maxAll) else (maxA
 
 {- 
  - implement Taylor series for exp(x)
- - eventually will extend to trig and log functions
  -}
 
 cfE = makeCF $ [2, 1, 2] ++ (concat [ [1,1,4+2*k] | k <- [0..] ])
@@ -366,36 +373,37 @@ expIter n x = (1 - 2%(3*n), 1 + 2%n):(arithCF_ (mat n) x (expIter (n+1) x))
 -- this is correct only when abs x <= 1
 cfExp_ (MakeCF_ x) = MakeCF_ (expIter 1 x)
 
--- Taylor series for log(1+x)/x
-logMat n = [[-n,0,0,1],[0,0,0,n]] -- (1/n) - xy
-logMatInv n = [[0,0,0,n],[-n,0,0,1]] -- 1/M_(x,n)(y)
-logMatProd01 n = [[-n,0,0,1],[n,0,0,n-1]]
--- error bound valid for 0 <= x <= 1
--- logIter n x = (1%(n*n+n), 1%n):(arithCF_ (logMat n) x (logIter (n+1) x))
--- we know that matrix will be nonnegative
-nonPositive (lo,hi) = lo < 0
-positive (lo,hi) = lo >= 0
-logIter n x | n > 1 = (termToBound 0):(n%1, (n*n+n)%1):(filter positive (arithCF_ (logMatInv n) x (logIter (n+1) x)))
-            | otherwise = (termToBound 0):(termToBound 1):(filter positive (arithCF_ (logMatProd01 n) x (logIter (n+1) x)))
+{-
+ - Log x 
+ -}
 
-cfShiftLog_ (MakeCF_ x) = MakeCF_ (logIter 1 x)
--- z = 1 + x so 1 <= z <= 2
-cfLog_ z = (z - 1)*(cfShiftLog_ (z - 1))
-cfLog2 = cfLog_ 2
-cfLog z | z > 2 = cfLog2 + (cfLog (z/2))
-        | z < 1 = -(cfLog (1/z))
-        | otherwise = cfLog_ z
+-- Taylor series for g(x)
+logMat n = [[2*n-1,0,0,1],[0,0,0,2*n-1]] -- 1/(2*n-1) + xy
+logMatProd0 n = [[0,0,0,2*n-1],[2*n-1,0,0,1]] -- 1/M_(x,n)(y)
+logMatProd1 n =  [[0,0,0,2*n-1],[2*n-1,0,0,2-2*n]] -- 1/(M_(x,n)(y) - 1)
+-- force intervals to be monotonic; interval bd is inherited from last iteration
+-- new bound is intersection of old bound with 'ordinary' bounds on curM
+gosperLog bd x y curM  | low == hi  = (termToBound hi):(gosperLog nobound x y (produce hi curM))   -- produce another term of output 
+                       | otherwise  = (lowR, hiR):(gosperLog (lowR, hiR) (tail_ x) (tail_ y) (ingestY (head_ y) (ingestX (head_ x) curM))) -- get next x,y
+                              where (prevLo, prevHi) = bd
+                                    (low_,hi_) = range curM
+                                    low = max (floor prevLo) low_
+                                    hi = min (floor prevHi) hi_
+                                    (lowR_, hiR_) = ratRange curM
+                                    lowR = max prevLo lowR_
+                                    hiR = min prevHi hiR_
+                              
+arithCFlog_ bd initM x y = takeWhile notInf (gosperLog bd (tail_ x) (tail_ y) (ingestY (head_ y) (ingestX (head_ x) (initM, pmInf, pmInf))))
+gIter n w | n == 1    = (termToBound 1):(arithCFlog_ nobound (logMatProd1 1) w (gIter 2 w))
+          | otherwise = (termToBound 0):((6*n-3)%4, (2*n-1)%1):(arithCFlog_ ((6*n-3)%4, (2*n-1)%1) (logMatProd0 n) w (gIter (n+1) w))
 
-viewInterval (lo, hi) | isTerm (lo,hi) = (fromRational lo, fromRational (0%1))
-                      | otherwise      = (fromRational lo, fromRational (hi-lo))
-view (MakeCF_ x) = map viewInterval x
-view_ x = map viewInterval x
+-- g(w) = 1 + w/3 + w^2/5 + w^3/7 + ...
+g w = gIter 1 w
+cfLog x | x > cfE = 1 + (cfLog (x/cfE))
+        | x < 1 = -(cfLog (1/x))
+        | otherwise = 2 * z * (MakeCF_ (g (getCF_ (z^2))))
+            where z = (x-1)/(x+1) -- todo; implement as single bihomographic expression
 
-z = makeCF [1,3]
-x = z-1
-xx = makeCF [0,3]
-slxx = cfShiftLog_ xx
-slxxTerms = view slxx
-slx = cfShiftLog_ x
-slxTerms = view slx
+-- alternative implementation; for large x, use wider bound derived from upper bound on w
+-- gIterAlt maxW n w |
 
