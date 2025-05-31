@@ -365,14 +365,25 @@ tooWide (lo, hi) = hi > lo + 1
 -- get an integer n such that abs(x-n) < 1 for all x in (lo, hi)
 getInt (lo, hi) = if isTerm (lo,  hi) then (numerator lo) else floor hi
 
--- error term for Taylor polynomial of degree n, assuming abs x <= 1
--- errorTerm n = 3%(product [1..n+1])
 -- n^{th} degree taylor polynomial is composition of mat 1, mat 2, ... mat n
 mat n = [[1,0,0,n],[0,0,0,n]] -- 1 + xy/n
 expIter n x = (1 - 2%(3*n), 1 + 2%n):(arithCF_ (mat n) x (expIter (n+1) x))
 -- this is correct only when abs x <= 1
 cfExp_ (MakeCF_ x) = MakeCF_ (expIter 1 x)
 
+-- another way to implement
+-- but slower than cfExp
+matAlt n = [[product [1..n],0,0,1],[0,0,0,product [1..n]]] -- 1/(n!) + xy
+expIterAlt n x | n >=3 = (termToBound 0):((product [1..n])%3, (product [1..n])%1) :(arithCF_  (prod 0 (matAlt n)) x (expIterAlt (n+1) x))
+               | otherwise = (1%(product [1..n]), 3%(product [1..n]) ):(arithCF_ (matAlt n) x (expIterAlt (n+1) x))
+-- this is correct only when 0 <= x <= 1
+cfExpAlt_ (MakeCF_ x) = MakeCF_ (expIterAlt 0 x)
+-- rewrite using known identities
+cfExpAlt x | x > 1 = (cfE^floorXint)*(cfExpAlt_ (x - floorXnum))
+           | x < 0 = 1/(cfExpAlt (-x))
+           | otherwise  = cfExpAlt_ x
+            where floorXint =  nearestInt x
+                  floorXnum =  fromIntegral floorXint
 {-
  - Log x 
  -}
@@ -394,7 +405,7 @@ gosperLog bd x y curM  | low == hi  = (termToBound hi):(gosperLog nobound x y (p
                                     hiR = min prevHi hiR_
                               
 arithCFlog_ bd initM x y = takeWhile notInf (gosperLog bd (tail_ x) (tail_ y) (ingestY (head_ y) (ingestX (head_ x) (initM, pmInf, pmInf))))
-gIter n w | n == 1    = (termToBound 1):(arithCFlog_ nobound (logMatProd1 1) w (gIter 2 w))
+gIter n w | n == 1    = (termToBound 1):(arithCFlog_ (3%1, ratInfinity) (logMatProd1 1) w (gIter 2 w))
           | otherwise = (termToBound 0):((6*n-3)%4, (2*n-1)%1):(arithCFlog_ ((6*n-3)%4, (2*n-1)%1) (logMatProd0 n) w (gIter (n+1) w))
 
 -- g(w) = 1 + w/3 + w^2/5 + w^3/7 + ...
@@ -404,6 +415,54 @@ cfLog x | x > cfE = 1 + (cfLog (x/cfE))
         | otherwise = 2 * z * (MakeCF_ (g (getCF_ (z^2))))
             where z = (x-1)/(x+1) -- todo; implement as single bihomographic expression
 
--- alternative implementation; for large x, use wider bound derived from upper bound on w
--- gIterAlt maxW n w |
+-- alternative implementation; for large x, use wider bound on g(w) derived from bound on x
+-- (still being debugged, and probably not better anyway)
+-- if 1 < x < xBound or xBound < x < 1 then 1 + w + w^2 + ... < ((a+1)^2)/(4a)
+-- produce the next term if we can
+ambiguous (lo, hi) = ceiling lo < floor hi && (not (isTerm (lo, hi)))
+gIterAlt xBound n w | ambig      = (gLo, gHi): (arithCFlog_ (gLo, gHi) nextMat w (gIterAlt xBound (n+1) w))
+                    | otherwise =  (termToBound xN):(gLo, gHi): (arithCFlog_ (gLo, gHi) nextMat w (gIterAlt xBound (n+1) w))
+                        where gHi_ = ((xBound+1)^2)/(4*xBound*(2*nn-1)) -- ghci wants n to be rational in this expr?
+                              gLo_ = if xBound > 1 then (xBound^2)/(4*(xBound-1)*(2*nn-1)) else 1/(2*nn-1)
+                              nn = n%1
+                              ambig = ambiguous (gLo_, gHi_)
+                              xN = if isTerm (gLo_,gHi_) then (numerator gLo_) else  floor gHi_ -- the next term, if determined
+                              (gLo, gHi) = if ambig then (gLo_, gHi_) else invert (xN%1) (gLo_, gHi_) 
+                              nextMat = if ambig then (logMat n) else (prod xN (logMat n))
 
+gAlt xBound w = gIterAlt xBound 1 w -- w is a sequence of intervals
+cfLogAlt x = 2 * z * (MakeCF_ (gAlt xBound zSquared))
+                       where xBound = if x > 1 then (1 + (nearestInt x))%1 else fst (head (dropWhile tooWide (getCF_ x)))
+                             z = (x-1)/(x+1)
+                             zSquared = getCF_ (z^2)
+{-
+ - trigonometric fuctions
+ -}
+
+trigMat n = [[-(product [2..2*n]),0,0,1],[0,0,0,product [2..2*n]]] -- 1/(2n)! - xy 
+-- valid for -pi/2 <= x <= pi/2
+cfCos x = MakeCF_ (cfCosIter 0 (getCF_ (x^2)))
+cfCosIter n w | n == 0     = (termToBound 0):( arithCF_ (prod 0 (trigMat n)) w (cfCosIter (n+1) w) )
+              | n == 1     = (termToBound 0):(termToBound 2):( arithCF_ (prod 2 (prod 0 (trigMat n))) w (cfCosIter (n+1) w) )
+              | otherwise  = (termToBound 0):(lo,hi):( arithCF_ (prod 0 (trigMat n)) w (cfCosIter (n+1) w) )
+                  where lo = (product [2..2*n])%1
+                        hi = (2*(product [2..2*(n+1)]))%(2*(2*n+1)*(2*n+2) - 5)
+                        -- hi = ((product [2..2*(n+1)]))%((2*n+1)*(2*n+2) - 4) -- cruder bound
+                        
+-- another implementation ; not quite correct ; eval at [1,2]
+trigMat2 n = [[-1,0,0,n*(n+1)],[0,0,0,n*(n+1)]] -- 1 - xy/(n(n+1)) 
+-- valid for -pi/2 <= x <= pi/2
+cfCos2 x = MakeCF_ (cfCosIter2 1 (getCF_ (x^2)))
+cfCosIter2 n w | n == 1     = (termToBound 0):( arithCF_ (prod 0 (trigMat2 n)) w (cfCosIter2 (n+1) w) )
+               | n==2       = (termToBound 0):(1%1, 1%3):( arithCF_ (prod 0 (trigMat2 n)) w (cfCosIter2 (n+1) w) )
+               | otherwise  = (termToBound 0):(termToBound 1):(lo,hi):( arithCF_ (prod 1 (prod 0 (trigMat2 n))) w (cfCosIter2 (n+1) w) )
+                  where lo = (n*(n+1)-3)%3
+                        hi = ratInfinity
+
+-- helpful for debugging infinite loops and slow computations
+debug n cf = take n (getCF_ cf)
+debugView n cf = MakeCF_ (debug n cf)
+
+-- arcsin(x)/x
+-- asinMat n = [[(2n+1)^2,0,0,2*n+2],[0,0,0,(2*n+1)*(2*n+2)]] -- 1/(2n+1) + wy(2n+1)/(2n+2) where w = x^2
+-- cfAsin x = x * (MakeCF_ (cfAsinIter 0 (getCF_ (x^2))))
