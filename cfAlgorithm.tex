@@ -62,7 +62,10 @@ It will be convenient to consider a finite CF as ending with an infinite term $a
 Gosper (in an appendix to the famous HAKMEM report \cite{hakmem}) 
 developed an algorithm for performing arithmetic on two CFs, getting a CF as the result;
 the point of course is that we can do this entirely within the CF representation, making no use of floating-point operations. Straightforward implementation of the algorithm leads to infinite loops on some inputs\footnote{\href{https://srossd.com/blog/2020/gosper-1/}{https://srossd.com/blog/2020/gosper-1/}}.
-Here we present modified versions of the arithmetic algorithm, and prove that these modifications avoid all difficulties with infinite loops in the following sense: given any $\varepsilon > 0$, our algorithm will produce a prefix of the output CF which is provably correct to within $\varepsilon$.
+Here we present modified versions of the arithmetic algorithm, and prove that these modifications avoid all difficulties with infinite loops in the following sense: given any $\varepsilon > 0$, if the correct result is $z=[z_0,z_1,\cdots]$, our algorithm will produce a finite CF $[z_0, \cdots z_{k-1}, z'_k]$ such that 
+\[
+|z - [z_0, \cdots z_{k-1}, z'_k]| < \varepsilon\ .
+\]
 
 We then extend the arithmetic algorithm with the techniques of the spigot algorithm for the digits of $\pi$ \cite{Gibbons2016,Rabinowitz2016}, to compute CF representations of $e^x, \log(x)$, and  $\cos(x)$, where $x$ is given as a CF. 
 Of course, since we can do arithmetic, we could compute any $n^{th}$ degree Taylor approximation of such functions to any degree of accuracy, but we go further;
@@ -74,7 +77,7 @@ in Haskell\footnote{\href{https://github.com/mjcollins10/ContinuedFractions}{htt
 
 \section{Arithmetic on One CF}
 Before we describe how to add or multiply two CFs, we consider the simpler problem of operations combining a single CF with a
-rational number $p/q$. It is not in fact necessary to handle this as a special case, but considering this case allows us to present the core idea of Gosper's algorithm in a straightforward way.
+rational number $p/q$. It is not in fact necessary to handle this as a special case, but considering this case separately allows us to present the core idea of the algorithm in a straightforward way.
 
 A few examples reveal there is no evident general pattern for transforming the CF terms of irrational $x$ into
 the terms of $px/q$ or $x + p/q$, even in the apparently simplest cases:
@@ -124,33 +127,33 @@ It is now clear that we will generate terms of $y$ by repeatedly determining the
 \begin{equation}\label{eq:homographic}
 \frac{px+q}{rx+s}
 \end{equation}
-where $x>1$ and the continued fraction expansion of $x$ is known. Functions of this form are called \emph{homographic}.
+where $x > 1$, the coefficients are integral, and the continued fraction expansion of $x$ is known. Functions of this form are called \emph{homographic}.
 We will identify a homographic function with the matrix
-$\left(
+$M=\left(
 \begin{smallmatrix} 
 p & q\\ 
 r & s 
 \end{smallmatrix}
-\right)$.
+\right)$
+and may write (\ref{eq:homographic}) as $M(x)$. We can assume without loss of generality that the determinant $ad-bc$ is nonzero, and $\gcd(a,b,c,d)=1$.
 
-To formalize our observations, we first define the \emph{range} of the function given by (\ref{eq:homographic})
-as the set of possible floors, i.e.
+If $-s/r \leq 1$ then the denominator cannot be zero, and $M(x)$ is between the min and max of $\{p/r, (p+q)/(r+s)\}$; if
 \[
-\mathcal{R}\pqrs = \left\{ \left\lfloor \frac{px+q}{rx+s} \right\rfloor | \  1 \leq x < \infty \right\}
+\left\lfloor \frac{p}{r}\right\rfloor = \left\lfloor \frac{p+q}{r+s}\right\rfloor
 \]
-We will be able to produce the next term of output when this set is a singleton. If $-s/r \leq 1$ then the denominator cannot be zero,
-and the upper and lower limits are the min and max of $\{p/r, (p+q)/(r+s)\}$: if $p/r$ is the max, and is also an integer, then the
-integer part cannot be larger than $p/r-1$, since we are approaching $p/r$ from below. If  $-s/r > 1$ the range will be infinite, so
-there is no need to compute it explicitly; we need to transform the expression by incorporating more information about $x$.
+then this common value is $\lfloor M(x) \rfloor$; we say that $M$ is \emph{unambiguous}.
 
-We define two transformations on homographics. When the range of the homographic expression for $[y_j,y_{j+1},\cdots]$ is not a
-singleton set, we do not yet have enough information to determine $y_j$, and must $\emph{ingest}$ the next term of $x$. If this term
-is $k$ we make the substitution $x \leftarrow k + 1/x$, leading to the definition
+
+We always have
+\begin{equation}\label{eq:invar}
+M([x_i,x_{i+1},\cdots]) = [y_j,y_{j+1},\cdots]
+\end{equation}
+where $[x_i,x_{i+1},\cdots]$ is the unread part of the input and $[y_0,\cdots y_{j-1}]$ is the output prefix already computed. 
+We define two transformations on $M$ which preserve (\ref{eq:invar}). When $M$ is ambiguous, we do not yet have enough information to determine $y_j$, and must $\emph{ingest}$ the next term of $x$. If this term is $x_i=k$ we make the substitution $x \leftarrow k + 1/x$, leading to the definition
 \[
-\mbox{ingest}(k,\pqrs) = \homographic{q+kp}{p}{s+kr}{r}%\frac{(kp+q)x + p}{ (kr+s)x + r}
+\mbox{ingest}(k,\pqrs) = \homographic{q+kp}{p}{s+kr}{r}\ .%\frac{(kp+q)x + p}{ (kr+s)x + r}
 \]
-
-When the range of the homographic expression for $[y_j,y_{j+1},\cdots]$ consists of a single integer $k$, we can \emph{produce}
+When $M$ is unambiguous with $k=\left\lfloor \frac{p}{r}\right\rfloor$, we can \emph{produce}
 the next output term $y_j = k$; the rest of the output, $[y_{j+1},y_{j+2},\cdots]$, is the continued fraction expansion of
 \[
 \frac{1}{\frac{px+q}{rx+s}-k} = \frac{rx+s}{(p-kr)x + (q-ks)}
@@ -159,6 +162,7 @@ so we define
 \[
 \mbox{produce}(k,\pqrs) = \homographic{r}{s}{p-kr}{q-ks}\ .
 \]
+Note that these two transformations do not change the absolute value of the determinant of $M$.
 
 If we started with rational $x$, we will eventually reach $x_i = \infty$; ingesting infinity returns the limit ${\left(
 \begin{smallmatrix} 
@@ -173,17 +177,19 @@ $M=\left(\begin{smallmatrix}0 & 1 \\ 0 & 0\end{smallmatrix}\right)$, which we ma
 
 \begin{figure}\label{fig:oneCFarith}
 \begin{algorithmic}
+\STATE{}\COMMENT{input $x = [x_0,x_1,\cdots]$}
+\STATE{}\COMMENT{input $M = \pqrs$}
+\STATE{}\COMMENT{output $y$: CF expansion of $M(x)$}
 \STATE{$i \gets 0$} \COMMENT{index of the next term of $x$ we will read}
 \STATE{$j \gets 0$} \COMMENT{index of the next term of $y$ we will generate}
-\STATE{$M \gets \pqrs$} \COMMENT{the initial matrix, i.e. the expression whose CF we will compute}
-\STATE{$M \gets \mbox{ingest}(x_0, M)$}
+\STATE{$M \gets \mbox{ingest}(x_0, M)$} \COMMENT{updating $M$ updates variables $p,q,r,s$}
 \STATE{$i \gets 1$}
 \WHILE {$M \neq \left(\begin{smallmatrix}0 & 1 \\ 0 & 0\end{smallmatrix}\right)$} 
-	\WHILE{$\mathcal{R}(M)$ is not a singleton}
+	\WHILE{$M$ is ambiguous}
                    \STATE{$M \gets \mbox{ingest}(x_i, M)$}
                    \STATE{$i \gets i+1$}
            \ENDWHILE
-           \STATE{$y_j \gets \mathcal{R}(M)$}
+           \STATE{$y_j \gets \left\lfloor \frac{p}{r}\right\rfloor$}
           \STATE{$M \gets \mbox{produce}(y_j,M)$}
           \STATE{$j \gets j+1$}
 \ENDWHILE
@@ -209,7 +215,7 @@ k & 0\\
 k & j\\ 
 0 & k 
 \end{smallmatrix}
-\right)$. Note that computing an arbitrary homomorphic expression $\pqrs$ is no more difficult than a single arithmetic operation.
+\right)$. Note that computing any homomorphic expression $\pqrs$ is no more difficult than a single arithmetic operation.
 
 
 \subsection{Proof of Termination}
@@ -220,25 +226,15 @@ lazy evaluation\cite{hutton2007programming}; such languages support conceptually
 fractions. Under lazy evaluation, defining a list-type variable $y$ to be the result of an algorithm just associates $y$ with the finite recursive
 expression that defines the algorithm; the number of elements of $y$ actually generated will be only what is needed by subsequent computations.
 
-The inner loop ``while $\mathcal{R}(M)$ is not a singleton" \emph{is} guaranteed to terminate; we will never be in an infinite loop
-waiting for the next term. We have already observed that this loop terminates if $\mathbf{x}$ is rational, so assume it is irrational. As
+The inner loop ``while $M$ is ambiguous" \emph{is} guaranteed to terminate even on irrational $\mathbf{x}$. As
 we iterate through the inner loop, we are repeatedly rewriting the initial $M = \pqrs$
-with $[\mathbf{x}_0, \cdots \mathbf{x}_i, x]$ in place of $x$. As $i$ goes to infinity, the upper and lower bounds on
+with $[\mathbf{x}_0, \cdots \mathbf{x}_i, x]$ in place of $x$. The upper and lower bounds on
 $[\mathbf{x}_0, \cdots \mathbf{x}_i, x]$ approach $\mathbf{x}$, so the upper and lower bounds of the matrix approach
 $\frac{p\mathbf{x}+q}{r\mathbf{x}+s}$.
-If this limit is irrational, eventually the bounding interval contains no integers; at this point $\mathcal{R}(M)$  will be a singleton
-(namely the common floor of all numbers in the interval), and we will produce a term. The limit is rational only in the degenerate case
-of
-\[
-\frac{p\mathbf{x}+q}{r\mathbf{x}+s} = \frac{na\mathbf{x}+nb}{da\mathbf{x}+db}
-\]
-but in that case we will immediately produce $\lfloor \frac{n}{d} \rfloor$ as the next term,
-and the next iteration will have $M =\left(
-\begin{smallmatrix} 
-0 & j\\ 
-0 & k 
-\end{smallmatrix}
-\right)$, where $\frac{j}{k} = 1/(\frac{n}{d}  -\lfloor \frac{n}{d} \rfloor)$, or $M = \left(\begin{smallmatrix}0 & 1 \\ 0 & 0\end{smallmatrix}\right)$ if $\frac{n}{d}$ is an integer.
+Since this limit is irrational\footnote{because we have ruled out the degenerate case of zero determinant}, eventually the bounding interval contains no integers; at this point $M$  will be unambiguous
+ and we will produce a term.
+ 
+ Liardet and Stambul \cite{LSAlgebraic1998} go beyond this basic observation to prove a bound (dependent on the determinant of $M$) on the maximum number of iterations needed to get the next term. Miska, Murru, and Romeo \cite{miska2025} give performance results suggesting that, almost always, four input terms are sufficient to get the next output.
 
 \subsection{Visualizing the Algorithm}
 Since $\mbox{ingest}(k,\pqrs)$ returns a matrix whose right column is
@@ -350,17 +346,18 @@ and the limit as $y \to \infty$  is zero.
 
 \begin{figure}\label{fig:twoCFarithPrelim}
 \begin{algorithmic}
+\STATE{}\COMMENT{input $x,y = [x_0,x_1,\cdots], [y_0,y_1,\cdots]$}
 \STATE{$i \gets 0$} \COMMENT{index of the next term of $x$ and $y$ we will read}
 \STATE{$j \gets 0$} \COMMENT{index of the next term of $z$ we will generate}
 \STATE{$M \gets \abcd$} \COMMENT{the initial matrix, i.e. the expression whose CF we will compute}
-\STATE{$M \gets \mbox{ingest\_y}(y_0, \mbox{ingest\_x}(x_0, M))$}
+\STATE{$M \gets \mbox{ingest\_y}(y_0, \mbox{ingest\_x}(x_0, M))$}\COMMENT{updating $M$ updates variables $a,\cdots, h$}
 \STATE{$i \gets 1$}
 \WHILE {$M \neq \infty$} 
-	\WHILE{$\mathcal{R}(M)$ is not a singleton}
+	\WHILE{$M$ is ambiguous}
                    \STATE{$M \gets \mbox{ingest\_y}(y_i, \mbox{ingest\_x}(x_i, M))$}
                    \STATE{$i \gets i+1$}
            \ENDWHILE
-           \STATE{$z_j \gets \mathcal{R}(M)$}
+           \STATE{$z_j \gets \lfloor M(x,y)\rfloor$}
           \STATE{$M \gets \mbox{produce}(z_j,M)$}
           \STATE{$j \gets j+1$}
 \ENDWHILE
@@ -454,20 +451,19 @@ In the case of $\sqrt{2}^2$, any accuracy threshold will yield the same result, 
 \subsection{An Algorithm for CF Arithmetic}\label{sec:finalAlgorithm}
 We now present the full details of the algorithm suggested in the previous section.  We augment the matrix $M$ with a pair of intervals
 $\{I_x, I_y\} = \{[x_{\ell},x_{u}), [y_{\ell}, y_{u})\}$, the current bounds on the remaining tails of the inputs $x,y$. These
-intervals start at $(-\infty, \infty)$, since the first term could be any integer. When we read an interval of the form $[a,a+1)$ from
+intervals start at $(-\infty, \infty)$, since the first term could be any integer.
+
+When we read an interval of the form $[a,a+1)$ from
 $x$ or from $y$, we modify $M$ as before with $M \leftarrow \mbox{ingest\_x}(a,M)$ or $M \leftarrow \mbox{ingest\_y}(a,M)$,
 and we change that variable's bound to $[1, \infty)$. When we read an \emph{ambiguous} interval $[\ell, u)$ (i.e. a bound that
 does not determine the next term of the input), we replace the bound $I_x$ or $I_y$  with $[\ell, u)$, leaving $M$ unchanged.
 
-For output, we first redefine $\mathcal{R}(M)$ to take the bounds into account, i.e.
-\[
-\mathcal{R}\left(\abcd, I_x, I_y\right) = \left\{ \left\lfloor \bihom{a}{b}{c}{d}{e}{f}{g}{h} \right\rfloor | \  x \in I_x, y \in I_y \right\}
-\]
-When this is a singleton set $\{a\}$, we output $[a,a+1)$ and modify $M$ as before with $M \leftarrow \mbox{produce}(a,M)$;
+When $M$ is unambiguous with $k = \lfloor M(x,y) \rfloor$, we output $[k,k+1)$ and modify $M$ as before with $M \leftarrow \mbox{produce}(k,M)$;
 the intervals $I_x$ and $I_y$ do not change. Otherwise we leave $M$ unchanged and output the interval from min to max of $M(x,y)$ subject to $x \in I_x, y \in I_y$:
 denote this interval $\rho\left(\abcd, I_x, I_y\right)$.
 These bounds are easily computed, see section (\ref{sec:ComputeBounds}).
 To retain unlimited accuracy, the bounds must be computed with exact rational arithmetic.
+
 
 \subsubsection{Recursive Definition}
 Figure (\ref{fig:twoCFarith}) presents the arithmetic algorithm as imperative pseudocode. We can also write it as a recursive function,
@@ -496,7 +492,7 @@ if $\rho(M,I_x,I_y)$ determines $a$ as the next output term, and
 \[
 \rho(M,I_x,I_y)\:\mbox{arith}(x_s,y_s,  \mbox{ingestBound\_y}( y_0, (\mbox{ingestBound\_x}(x_0,M,I_x,I_y)) ))
 \]
-otherwise. If $M=\infty$ (i.e. the denominator is zero), we have exhausted a pair of rational inputs to produce a rational result, and can terminate the recursion with $\mbox{arith}(x,y, M, I_x, I_y) = [\infty]$.
+if $\rho(M,I_x,I_y)$ is ambiguous. If $M=\infty$ (i.e. the denominator is zero), we have exhausted a pair of rational inputs to produce a rational result, and can terminate the recursion with $\mbox{arith}(x,y, M, I_x, I_y) = [\infty]$.
 
 %\subsubsection{Correctness of the Algorithm} The arithmetic algorithm cannot stall, since every iteration appends a new bound to the output list. If the algorithm generates an infinite list of ambiguous bounds, we can see immediately that these will converge to $M(x,y)$.
 
@@ -525,7 +521,7 @@ otherwise. If $M=\infty$ (i.e. the denominator is zero), we have exhausted a pai
      \STATE{$i \gets i+1$}
      
      \STATE{}\COMMENT{produce output}
-     \IF{$\mathcal{R}(M,I_x,I_y)$ is a singleton set $\{a\}$}
+     \IF{$(M,I_x,I_y)$ is unambiguous with $\lfloor M(x,y) \rfloor = a$ for all $x\in I_x, y\in I_y$}
      \STATE{$M \gets \mbox{produce}(a, M)$}
           \STATE{$z_j \gets [a,a+1)$}    
      \ELSE
@@ -550,7 +546,8 @@ The range of $M$ subject to the bounds will be the min and max of
 \[
 \left\{ \frac{a'}{e'},\frac{b'}{f'},\frac{c'}{g'},\frac{d'}{h'} \right\}
 \]
-assuming no sign change in the denominator as $x'$ goes from 0 to infinity; fractions with numerator and denominator both $0$ can be ignored.
+assuming no sign change in the denominator as $x'$ and $y'$ go from 0 to infinity; fractions with numerator and denominator both $0$ can be ignored.
+If the denominator can be zero, $\rho\left(\abcd, [x_{\ell}, x_u),  [y_{\ell}, y_u)\right) = [1,\infty)$
 
 
 \subsection{Possible Optimization}
@@ -561,15 +558,32 @@ and recompute the range of $M$. Similarly, the
 algorithm does not need to output every ambiguous interval of $z$; but  we must guarantee that we eventually output something,
 even if we are generating an infinite list of ambiguous intervals. The most obvious idea is to read and generate ambiguous intervals only if the gap is smaller than some threshold.
 
+\subsection{Division by Zero}\label{sec:anomalous}
+The limit of $\frac{axy + bx + cy + d}{exy + fx + gy + h}$ as $x$ or $y$ approaches infinity is not necessarily a homographic matrix; for example
+\[
+\lim_{y \to \infty} \frac{y}{x-3} = \begin{cases}
+                                                          +\infty & \mbox{if } x > 3 \\
+                                                          \mbox{undefined} & \mbox{if } x=3 \\
+                                                          -\infty & \mbox{if } x < 3
+                                                         \end{cases}
+\]
+But ingesting infinity can only mean that we have reached the end of a finite rational input $\mathbf{y}$. At a previous step we
+must have ingested a term $\alpha$. The previous matrix, which generated $\frac{y}{x-3}$ by substituting $y \leftarrow \alpha + 1/y$, can be found by applying the inverse substitution $y \leftarrow 1/(y-\alpha)$ to get
+\[
+\frac{1}{(y-\alpha)(x-3)} = \frac{1}{xy - \alpha x -3y +3\alpha}
+\]
+which means we are trying to divide by zero; we are substituting $y = \alpha + \frac{1}{\infty} = \alpha$. The invalid computation is revealed by the anomalous limit.
+Such anomalous limits can only arise from division by zero.
+
 
 \section{Transcendental Functions}
 \subsection{Exponentials} We now consider how to compute the CF terms of 
 \[
 e^x = \sum_{k=0}^{\infty} \frac{x^k}{k!}
 \]
-where $x$ is given as a CF. Let
+where $x$ is given as a CF, possibly with ambiguous intervals. Let
 \[
-M_{(n,x)}(y) = 1 + \frac{xy}{n} \ .
+M_{n,x}(y) = 1 + \frac{xy}{n} \ .
 \]
 This is a bihomographic expression with matrix $\bihomographic{1}{0}{0}{n}{0}{0}{0}{n}$. The $n^{th}$ degree Taylor approximation,
 $1 + x + x^2/2 +\cdots + x^n/{n!}$, can be written using Horner's rule as
@@ -581,29 +595,30 @@ $1 + x + x^2/2 +\cdots + x^n/{n!}$, can be written using Horner's rule as
  e^x = 1 + x \left(1 + \frac{x}{2}\left( 1 + \frac{x}{3}\left(1 + \cdots \right. \right.  \right.   \ .
  \end{equation} 
  Now define
- \[
+ \begin{equation}\label{eq:yn}
  y_n(x) = 1 + \frac{x}{n} + \frac{x^2}{n(n+1)} + \cdots = \lim_{m\to\infty} M_{(n,x)}( M_{(n+1,x)}( \cdots M_{(m,x)}(1) \cdots ) ) \ .
-  \]
-  So $y_n(x) = M_{(n,x)}(y_{n+1}(x))$, and $y_1(x) = e^x$.
+  \end{equation}
+Thus $y_n(x) = M_{(n,x)}(y_{n+1}(x))$, and $y_1(x) = e^x$.
  Comparing termwise we see that
  \[
  |y_n(x) - 1| \leq \frac{|e^x - 1|}{n} \ .
  \]
- Let us assume, temporarily, that $|x| \leq 1$. Since $\frac{1}{3} < e^x < 3$, we know that $y_n(x)$ is in the interval $(1 - \frac{2}{3n}, 1 + \frac{2}{n})$, so this can be the first (necessarily ambiguous) interval of the CF representation of $y_n(x)$.
-The subsequent intervals are the CF representation of $M_{(n,x)}(y_{n+1}(x))$, which is a bihomographic expression that can be evaluated with the arithmetic algorithm. The infinite recursion does not lead to an infinite loop, since we can always get one interval of $y_n(x)$ without recursion into $y_{n+1}(x)$; at some point this one term will be sufficient to determine the next output.
+ Assume, temporarily, that $|x| \leq 1$. Since $\frac{1}{3} < e^x < 3$, we know that 
+ \[
+ y_n(x) \in (1 - \frac{2}{3n}, 1 + \frac{2}{n})
+ \]
+ so this can be the first (necessarily ambiguous) interval of the CF representation of $y_n(x)$.
+The subsequent intervals are the CF representation of $M_{(n,x)}(y_{n+1}(x))$,
+which is a bihomographic expression that can be evaluated with the arithmetic algorithm;
+the algorithm will read $(1 - \frac{2}{3(n+1)}, 1 + \frac{2}{n+1})$ as the first interval of $y_{n+1}(x)$ and so on. The infinite recursion of (\ref{eq:yn}) does not lead to an infinite loop, because we can always get one interval of $y_n(x)$ without recursion into $y_{n+1}(x)$.
 
 If $|x|>1$, we could use the weaker bound $0 < e^x < 3^{\lceil x \rceil}$. Or we could take advantage of the fact that there is an explicit formula for the CF expansion of $e$:
 \[
 e = [1,2,1,1,4,1,1,6,1,1,8,1,1,10,1 \cdots ]
 \]
-and write $e^x$ as $e^{\lfloor x \rfloor}e^{x-\lfloor x \rfloor}$, using ordinary multiplication to obtain $e^{\lfloor x \rfloor}$. In either case, the floor or ceiling of $x$ can be obtained from a finite prefix of $x$.
+and write $e^x$ as $e^{\lfloor x \rfloor}e^{x-\lfloor x \rfloor}$, using ordinary multiplication to obtain $e^{\lfloor x \rfloor}$. In either case, the floor or ceiling of $x$ can be bounded using a finite prefix of $x$.
 
 
-\subsection{Spigot Algorithms}
-Expressions like (\ref{eq:spigot}), representing an infinite sum as infinitely nested sequence of rational functions, are central to the spigot algorithm\cite{Gibbons2016,Rabinowitz2016} for computing digits of $\pi$.
-In fact, using the technique of that algorithm, we could produce base-$b$ digits of $e^x$ by redefining ``produce $a$" as $M(x,y) \leftarrow b(M(x,y) - a)$ when we compute $y_1(x)$;
-after such a transformation, $M(x,y)$ represents a real number whose floor is the next digit, rather than the next CF term. 
-%For that matter, if $x$ were given as a sequence of digits, we could read it by redefining ``ingestX $a$" as the transformation $x \leftarrow a + \frac{x}{b}$. After this transformation, $M(x,y)$ represents the same value, with $x=[a,x_1,x_2\cdots]$ replaced by $x=[x_1,x_2\cdots]$
 
 \subsection{Logarithms} We can apply the same approach to $\log x$, using the series
 \[
@@ -623,32 +638,62 @@ So we define
 \[
 g_n(w) = \frac{1}{2n-1}  + \frac{w}{2n+1} + \frac{w^2}{2n+3} \cdots = \lim_{m\to\infty} M_{(n,w)}( M_{(n+1,w)}( \cdots M_{(m,w)}(1/2m+1) \cdots ) ) \ .
 \]
-In particular, $g_1(w) = g(w)$, and $g_n(w) = M_{(n,w)}(g_{n+1}(w))$. Since $w$ is nonnegative, we know that $g_n(w) \geq \frac{1}{2n-1}$.
+In particular $g_1(w) = g(w)$, and $g_n(w) = M_{(n,w)}(g_{n+1}(w))$. Since $w$ is nonnegative, we know that $g_n(w) \geq \frac{1}{2n-1}$.
 The upper bound, however, goes to infinity as $w$ approaches 1, i.e. as $x$ approaches zero or infinity. So let us assume temporarily that $1<x<e$; then 
 \[
 |z| \leq \frac{e-1}{e+1} < \frac{3-1}{3+1} = \frac{1}{2}
 \]
 and $w < \frac{1}{4}$, implying $g_n(w) < \frac{4}{3(2n-1)}$.
 For $n>1$, we can immediately produce zero as the first explicit term, and the next interval is $(\frac{3(2n-1)}{4}, 2n-1)$;
-subsequent intervals are obtained by applying the CF arithmetic algorithm to $\frac{1}{M_{(n,w)}(g_{n+1}(w))}$.
-For $n=1$ we produce the explicit term $1$, followed by the interval $(3,\infty)$ and the rest of  $\frac{1}{M_{(1,w)}(g_2(w))-1}$
+subsequent intervals are obtained by applying the CF arithmetic algorithm to
+\[
+\frac{1}{M_{(n,w)}(g_{n+1}(w))} = \frac{2n-1}{(2n-1)wg_{n+1}(w)+ 1} \ .
+\]
+For $n=1$ we produce the explicit term $1$, then  $(3,\infty)$ and the rest of  $\frac{1}{M_{(1,w)}(g_2(w))-1}$.
 
 For other values of $x$  we can use the identities $\log(x)=1+\log(x/e)$ and $\log(x) = -\log(1/x)$ . 
+
 
 \subsection{Trigonometric Functions}
 The cosine
 \[
 \cos(x) = 1 - \frac{x^2}{2} + \frac{x^4}{4!} - \cdots = 1 - \frac{x^2}{2} \left(1 - \frac{x^2}{12}\left( 1 - \frac{x^2}{30}\left(1 + \cdots \right. \right.  \right.  
 \]
-can be represented by letting $w=x^2$ and iterating
+can be represented by letting $w=x^2$, defining
 \[
-M_{n,w}(y) = 1 - \frac{wy}{n(n+1)} \ .
+M_{n,w}(y) = 1 - \frac{wy}{n(n+1)}
 \]
-If $|x| \leq \frac{\pi}{2}$, then $w < \frac{5}{2}$, and
+and
+\begin{equation}\label{eq:cosIter}
+c_n(w) = M_{n,w}(M_{n+1,w}(\cdots)) = 1 - \frac{w}{n(n+1)} + \frac{w^2}{n(n+1)(n+2)(n+3)} - \cdots \ .
+\end{equation}
+so $c_n(w) = M_{n,w}(c_{n+1}(w))$, and $c_1(w) = \cos(x)$.
+
+If $|x| \leq \frac{\pi}{2}$, then $w < \frac{5}{2}$, and (\ref{eq:cosIter}) is an alternating series bounded between $1 - \frac{5}{2n(n+1)}$ and 1; the CF expansion of $c_n(w)$ will then start with zero, followed by the interval $(1, \frac{2n(n+1)}{2n(n+1)-5})$ and the rest of $\frac{1}{M_{n,w}(c_{n+1}(w))}$. When $n \geq 2$ this interval implies that the next CF term is $1$, so we can in fact append $1$ followed by the CF representation of
 \[
-c_n(w) = M_{n,w}(M_{n+1,w}(\cdots)) = 1 - \frac{w}{n(n+1)} + \frac{w^2}{n(n+1)(n+2)(n+3)} - \cdots
+\left(\frac{1}{M_{n,w}(c_{n+1}(w))}-1\right)^{-1}\ .
 \]
-is an alternating series bounded between $1 - \frac{5}{2n(n+1)}$ and 1; the CF expansion of $c_n(w)$ will then start with zero, followed by the interval $(1, \frac{2n(n+1)}{2n(n+1)-5})$ and the rest of $\frac{1}{M_{n,w}(c_{n+1}(w))}$. When $n=1$ the interval is from 1 to infinity, is  so this interval can be skipped.
+
+
+\subsection{Spigot Algorithms}
+Expressions like (\ref{eq:spigot}), representing an infinite sum as an infinitely nested sequence of rational functions, are central to the spigot algorithm\cite{Gibbons2016,Rabinowitz2016} for computing digits of $\pi$. One version of that algorithm uses Gosper's ``accelerated" series \cite{acceleration}:
+\[
+\pi = 3 + \frac{1 \times 1}{3 \times 4 \times 5}\big(8 + \frac{2 \times 3}{3 \times 7 \times 8}\big( \cdots 5i-2 + \frac{i(2i-1)}{3(3i+1)(3i+2)} \cdots \big) \big) \ .
+\]
+We can define
+\[
+M_i(x) = \cdots 5i-2 + \frac{i(2i-1)}{3(3i+1)(3i+2)}x
+\]
+and $p_i = \lim_{i \to \infty} M_i(M_{i+1}(\cdots))$;
+then $\pi = p_1$. The spigot algorithm uses the fact that
+\begin{equation}\label{eq:pi}
+\frac{27i-12}{5} \leq p_i \leq \frac{27}{5}i - \frac{216}{125} \ .
+\end{equation}
+Following the same pattern as used for transcendental functions, we could obtain the CF terms of $\pi = p_1$ using $p_i = M_n(p_{i+1})$, taking (\ref{eq:pi}) as the first interval of $p_i$. The spigot algorithm instead produces digits; when the floor of the current matrix is known to be $k$, we transform it as $M \leftarrow 10(M-k)$ to obtain an expression whose floor is the next digit.
+
+In fact, in the same way, we could produce base-$b$ digits of $e^x$ (with $x$ given as a CF!) by redefining ``produce $a$" as $M(x,y) \leftarrow b(M(x,y) - a)$ when we compute $y_1(x)$;
+after such a transformation, $M(x,y)$ represents a real number whose floor is the next digit, rather than the next CF term. 
+For that matter, if $x$ were given as a sequence of digits, we could read it by redefining ``ingestX $a$" as the transformation $x \leftarrow a + \frac{x}{b}$. After this transformation, $M(x,y)$ represents the same value, with $x=[a,x_1,x_2\cdots]$ replaced by $x=[x_1,x_2\cdots]$; the upper and lower bounds on $M(x,y)$ would be determined by $0 \leq x < b$ instead of $1 <  x \leq \infty$.
 
 
 \section{Arithmetic with Arbitrary Intervals}
@@ -665,26 +710,9 @@ In the same manner, suppose the current (ambiguous) bound on $x$ is $I_x = (x_{\
 \[
 I_x = \left(\frac{1}{\min(x_h,a+1) - a}, \frac{1}{\max(x_{\ell},a) - a}\right) \ .
 \]
+Such an optimization might be useful for transcendental functions, which by our construction will include many ambiguous intervals. But there is no guarantee that the more precise representation would give any computational advantage, since more computation is required to manipulate the tighter bounds.
 
-Of course there is no guarantee that the more precise representation would give any computational advantage in practice, since more computation is required to manipulate the tighter bounds.
 
-
-\section{Division by Zero}\label{sec:anomalous}
-The limit of $\frac{axy + bx + cy + d}{exy + fx + gy + h}$ as $x$ or $y$ approaches infinity is not necessarily a homographic matrix; for example
-\[
-\lim_{y \to \infty} \frac{y}{x-3} = \begin{cases}
-                                                          +\infty & \mbox{if } x > 3 \\
-                                                          \mbox{undefined} & \mbox{if } x=3 \\
-                                                          -\infty & \mbox{if } x < 3
-                                                         \end{cases}
-\]
-But ingesting infinity can only mean that we have reached the end of a finite rational input $\mathbf{y}$. At a previous step we
-must have ingested a term $\alpha$. The previous matrix, which generated $\frac{y}{x-3}$ by substituting $y \leftarrow \alpha + 1/y$, can be found by applying the inverse substitution $y \leftarrow 1/(y-\alpha)$ to get
-\[
-\frac{1}{(y-\alpha)(x-3)} = \frac{1}{xy - \alpha x -3y +3\alpha}
-\]
-which means we are trying to divide by zero; the invalid computation is revealed by the anomalous limit.
-Examination of cases shows that such anomalous limits can only arise from division by zero.
 
 \bibliographystyle{plain}
 \bibliography{cfAlgorithm}
