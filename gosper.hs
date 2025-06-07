@@ -460,8 +460,9 @@ cfCosIter2 n w | n == 1     = (termToBound 0):( arithCF_ (prod 0 (trigMat2 n)) w
                         hi = ratInfinity
 
 -- helpful for debugging infinite loops and slow computations
-debug n cf = take n (getCF_ cf)
+debug n (MakeCF_  cf) = take n cf
 debugView n cf = MakeCF_ (debug n cf)
+findTerms n (MakeCF_ cf) = [ (k, (numerator.fst) (cf!!k)) | k <- [1..n], isTerm (cf!!k) ]
 
 -- arcsin(x)/x
 -- asinMat n = [[(2n+1)^2,0,0,2*n+2],[0,0,0,(2*n+1)*(2*n+2)]] -- 1/(2n+1) + wy(2n+1)/(2n+2) where w = x^2
