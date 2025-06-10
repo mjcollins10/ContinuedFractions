@@ -101,7 +101,7 @@ limYinf [[a,b,c,d],[e,f,g,h]] | (a,c) /= (0,0) && (e,g) /= (0,0) = [[0,a,0,c],[0
 
 -- when we know that the next term of output is n, the matrix representing the rest of the output
 -- is (numerator/denominator - n)^{-1}
-produce n ([num, den], boundX, boundY) = ( [den, [j-n*k | (j,k) <- zip num den]], boundX, boundY )
+produce n ([num, den], boundX, boundY) = ( prod n [num, den], boundX, boundY )
 prod n [num, den]  =  [den, [j-n*k | (j,k) <- zip num den]]
 
 -- finite (i.e. rational) CF is implicitly terminated by infinite list of infinite terms
@@ -187,11 +187,13 @@ floatToCFterms x | x == floor_x   = [floor x]
 -- evaluate a finite sequence of terms
 fracEval []     = fromIntegral infinity
 fracEval (a:[]) = a
-fracEval (a:as) = a + 1/(fracEval as)
+fracEval (a:as) = if denom == 0 then fromIntegral infinity else a + 1/denom
+                    where denom = (fracEval as)
 
 ratEval []     = ratInfinity
 ratEval (a:[]) = a % 1
-ratEval (a:as) = (a%1) + if theRest == ratInfinity  then 0 else 1/theRest
+ratEval (a:as) | theRest == 0 = ratInfinity
+               | otherwise = (a%1) + if theRest == ratInfinity  then 0 else 1/theRest
                     where theRest = ratEval as
 
 -- convert a finite list of bounds to a finite list of terms
@@ -439,25 +441,24 @@ cfLogAlt x = 2 * z * (MakeCF_ (gAlt xBound zSquared))
  - trigonometric fuctions
  -}
 
-trigMat n = [[-(product [2..2*n]),0,0,1],[0,0,0,product [2..2*n]]] -- 1/(2n)! - xy 
+-- pi, using Gosper's accelerated series
+piMat i = [[0, i*(2*i-1), 0, (5*i-2)*3*(3*i+1)*(3*i+2)],
+           [0, 0,         0, 3*(3*i+1)*(3*i+2)]]
+piInterval i = ( (27*i-12)%5, (675*i - 216)%125  )
+piIter i | i == 1    = (termToBound 3):(arithCF_ (prod 3 (piMat i)) (piIter (i+1)) [termToBound 0])
+         | otherwise =  (piInterval i):(arithCF_ (piMat i)          (piIter (i+1)) [termToBound 0])
+cfPi = MakeCF_ (piIter 1)
+
+trigMat n = [[-1,0,0,2*n*(2*n-1)],[0,0,0,2*n*(2*n-1)]] -- 1 - xy/(2n(2n-1)) 
 -- valid for -pi/2 <= x <= pi/2
-cfCos x = MakeCF_ (cfCosIter 0 (getCF_ (x^2)))
-cfCosIter n w | n == 0     = (termToBound 0):( arithCF_ (prod 0 (trigMat n)) w (cfCosIter (n+1) w) )
-              | n == 1     = (termToBound 0):(termToBound 2):( arithCF_ (prod 2 (prod 0 (trigMat n))) w (cfCosIter (n+1) w) )
-              | otherwise  = (termToBound 0):(lo,hi):( arithCF_ (prod 0 (trigMat n)) w (cfCosIter (n+1) w) )
-                  where lo = (product [2..2*n])%1
-                        hi = (2*(product [2..2*(n+1)]))%(2*(2*n+1)*(2*n+2) - 5)
-                        -- hi = ((product [2..2*(n+1)]))%((2*n+1)*(2*n+2) - 4) -- cruder bound
-                        
--- another implementation ; not quite correct ; eval at [1,2]
-trigMat2 n = [[-1,0,0,n*(n+1)],[0,0,0,n*(n+1)]] -- 1 - xy/(n(n+1)) 
--- valid for -pi/2 <= x <= pi/2
-cfCos2 x = MakeCF_ (cfCosIter2 1 (getCF_ (x^2)))
-cfCosIter2 n w | n == 1     = (termToBound 0):( arithCF_ (prod 0 (trigMat2 n)) w (cfCosIter2 (n+1) w) )
-               | n==2       = (termToBound 0):(1%1, 1%3):( arithCF_ (prod 0 (trigMat2 n)) w (cfCosIter2 (n+1) w) )
-               | otherwise  = (termToBound 0):(termToBound 1):(lo,hi):( arithCF_ (prod 1 (prod 0 (trigMat2 n))) w (cfCosIter2 (n+1) w) )
-                  where lo = (n*(n+1)-3)%3
-                        hi = ratInfinity
+cfCos x  | (abs x) <= cfPi/2 = MakeCF_ (cfCosIter 1 (getCF_ (x^2)))
+         | (abs x) <= cfPi   = -(cfCos (cfPi - x))
+         | otherwise = cfCos (x - (signum x)*2*cfPi)
+cfCosIter n w | n > 1 = (termToBound 0):(termToBound 1):((4*n*(2*n-1)-5)%5, ratInfinity):( arithCF_ (prod 1 (prod 0 (trigMat n))) w (cfCosIter (n+1) w) )
+              | otherwise =(-1%4, 1%1 ):( arithCF_  (trigMat 1) w (cfCosIter 2 w) ) 
+
+cfSin x = cfCos (x - cfPi/2)
+cfTan x = (cfSin x)/(cfCos x)
 
 -- helpful for debugging infinite loops and slow computations
 debug n (MakeCF_  cf) = take n cf

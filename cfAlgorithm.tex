@@ -547,7 +547,7 @@ The range of $M$ subject to the bounds will be the min and max of
 \left\{ \frac{a'}{e'},\frac{b'}{f'},\frac{c'}{g'},\frac{d'}{h'} \right\}
 \]
 assuming no sign change in the denominator as $x'$ and $y'$ go from 0 to infinity; fractions with numerator and denominator both $0$ can be ignored.
-If the denominator can be zero, $\rho\left(\abcd, [x_{\ell}, x_u),  [y_{\ell}, y_u)\right) = [1,\infty)$
+If the denominator can be zero, $\rho\left(\abcd, [x_{\ell}, x_u),  [y_{\ell}, y_u)\right) = [-\infty,\infty)$
 
 
 \subsection{Possible Optimization}
@@ -568,7 +568,7 @@ The limit of $\frac{axy + bx + cy + d}{exy + fx + gy + h}$ as $x$ or $y$ approac
                                                          \end{cases}
 \]
 But ingesting infinity can only mean that we have reached the end of a finite rational input $\mathbf{y}$. At a previous step we
-must have ingested a term $\alpha$. The previous matrix, which generated $\frac{y}{x-3}$ by substituting $y \leftarrow \alpha + 1/y$, can be found by applying the inverse substitution $y \leftarrow 1/(y-\alpha)$ to get
+must have ingested an explicit integer term $\alpha$. The previous matrix, which generated $\frac{y}{x-3}$ by substituting $y \leftarrow \alpha + 1/y$, can be found by applying the inverse substitution $y \leftarrow 1/(y-\alpha)$ to get
 \[
 \frac{1}{(y-\alpha)(x-3)} = \frac{1}{xy - \alpha x -3y +3\alpha}
 \]
@@ -661,21 +661,28 @@ The cosine
 \]
 can be represented by letting $w=x^2$, defining
 \[
-M_{n,w}(y) = 1 - \frac{wy}{n(n+1)}
+M_{n,w}(y) = 1 - \frac{wy}{2n(2n-1)}
 \]
 and
 \begin{equation}\label{eq:cosIter}
-c_n(w) = M_{n,w}(M_{n+1,w}(\cdots)) = 1 - \frac{w}{n(n+1)} + \frac{w^2}{n(n+1)(n+2)(n+3)} - \cdots \ .
+c_n(w) = M_{n,w}(M_{n+1,w}(\cdots)) = 1 - \frac{w}{2n(2n-1)} + \frac{w^2}{(2n+2)(2n+1)2n(2n-1)} - \cdots \ .
 \end{equation}
 so $c_n(w) = M_{n,w}(c_{n+1}(w))$, and $c_1(w) = \cos(x)$.
 
-If $|x| \leq \frac{\pi}{2}$, then $w < \frac{5}{2}$, and (\ref{eq:cosIter}) is an alternating series bounded between $1 - \frac{5}{2n(n+1)}$ and 1; the CF expansion of $c_n(w)$ will then start with zero, followed by the interval $(1, \frac{2n(n+1)}{2n(n+1)-5})$ and the rest of $\frac{1}{M_{n,w}(c_{n+1}(w))}$. When $n \geq 2$ this interval implies that the next CF term is $1$, so we can in fact append $1$ followed by the CF representation of
+If $|x| \leq \frac{\pi}{2}$, then $w < \frac{5}{2}$, and (\ref{eq:cosIter}) is an alternating series bounded between $1 - \frac{5}{4n(2n-1)}$ and 1; the CF expansion of $c_1(w)$ will start with this interval,  followed by the result of applying the arithmetic algorithm to the bihomographic expression $M_{n,w}(c_2(w))$. For $n \geq 2$, we can immediately produce 0, and we have
 \[
-\left(\frac{1}{M_{n,w}(c_{n+1}(w))}-1\right)^{-1}\ .
+1  \leq \frac{1}{M_{n,w}(c_{n+1}(w))} \leq \frac{4n(2n-1)}{4n(2n-1)-5} \ .
 \]
+This interval in turn lets us immediately produce 1; then
+\[
+ \frac{4n(2n-1)-5}{5} \leq \left(\frac{1}{M_{n,w}(c_{n+1}(w))} - 1 \right)^{-1} < \infty
+\]
+and we apply the arithmetic algorithm to $(1/M_{n,w}(c_{n+1}(w)) - 1) ^{-1}$
+
+For $\frac{\pi}{2} \leq |x| \leq \pi$ we use $\cos(x) = -\cos(\pi - x)$, and for all other values $\cos(x) = \cos(x \pm 2\pi)$; see section \ref{sec:spigot} for computing the CF expansion of $\pi$.
 
 
-\subsection{Spigot Algorithms}
+\subsection{Spigot Algorithms}\label{sec:spigot}
 Expressions like (\ref{eq:spigot}), representing an infinite sum as an infinitely nested sequence of rational functions, are central to the spigot algorithm\cite{Gibbons2016,Rabinowitz2016} for computing digits of $\pi$. One version of that algorithm uses Gosper's ``accelerated" series \cite{acceleration}:
 \[
 \pi = 3 + \frac{1 \times 1}{3 \times 4 \times 5}\big(8 + \frac{2 \times 3}{3 \times 7 \times 8}\big( \cdots 5i-2 + \frac{i(2i-1)}{3(3i+1)(3i+2)} \cdots \big) \big) \ .
@@ -689,7 +696,7 @@ then $\pi = p_1$. The spigot algorithm uses the fact that
 \begin{equation}\label{eq:pi}
 \frac{27i-12}{5} \leq p_i \leq \frac{27}{5}i - \frac{216}{125} \ .
 \end{equation}
-Following the same pattern as used for transcendental functions, we could obtain the CF terms of $\pi = p_1$ using $p_i = M_n(p_{i+1})$, taking (\ref{eq:pi}) as the first interval of $p_i$. The spigot algorithm instead produces digits; when the floor of the current matrix is known to be $k$, we transform it as $M \leftarrow 10(M-k)$ to obtain an expression whose floor is the next digit.
+Following the same pattern as used for transcendental functions, we could obtain the CF terms of $\pi = p_1$ using $p_i = M_n(p_{i+1})$, taking (\ref{eq:pi}) as the first interval of $p_i$. The spigot algorithm uses the same equation to produce digits; when the floor of the current expression is known to be $k$, we transform it as $M \leftarrow 10(M-k)$ to obtain an expression whose floor is the next digit.
 
 In fact, in the same way, we could produce base-$b$ digits of $e^x$ (with $x$ given as a CF!) by redefining ``produce $a$" as $M(x,y) \leftarrow b(M(x,y) - a)$ when we compute $y_1(x)$;
 after such a transformation, $M(x,y)$ represents a real number whose floor is the next digit, rather than the next CF term. 
