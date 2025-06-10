@@ -91,7 +91,7 @@ We have also implemented Gosper's algorithm for extracting the square root of a 
 	*Main> p $ (5 - cfD)/(2*3)  -- exactly right
 	cf[0]
 	
-We can also compute exponentials, logs, and trig functions cfE  (see cfAlgorithm.tex for details of how this is implemented):
+We can also compute exponentials, logs, and trig functions (see cfAlgorithm.tex for details of how this is implemented):
 
 	*Main> cfExp (cfSqrt 2)
 	cf[4,8,1,4,1,7,2,12,1,18]
