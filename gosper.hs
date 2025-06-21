@@ -17,7 +17,8 @@ nobound = (1%1, infinity%1)
 pmInf = (-infinity%1, infinity%1) 
 intersect (lo, hi) (lo_, hi_) = (max lo lo_, min hi hi_)
 -- given bounds on x, get bounds on x' where x = n + 1/x'
-invert n (lo, hi) = (1/(hi - n), if lo <= n then ratInfinity else 1/(lo-n))
+invert n (lo, hi) | n >= ratInfinity = nobound
+                  | otherwise = (max (1/(hi - n)) (1%1), if lo <= n then ratInfinity else 1/(lo-n))
 
 -- range_ is min,max of *integer part* of bihomomorphic matrix (axy + bx +cy + d)/(exy + fx + gy + h)
 -- as x,y vary independently from *zero* to infinity
@@ -361,24 +362,11 @@ expIter n x = (1 - 2%(3*n), 1 + 2%n):(arithCF_ (mat n) x (expIter (n+1) x))
 -- this is correct only when abs x <= 1
 cfExp_ (MakeCF_ x) = MakeCF_ (expIter 1 x)
 
--- another way to implement
--- but slower than cfExp
-matAlt n = [[product [1..n],0,0,1],[0,0,0,product [1..n]]] -- 1/(n!) + xy
-expIterAlt n x | n >=3 = (termToBound 0):((product [1..n])%3, (product [1..n])%1) :(arithCF_  (prod 0 (matAlt n)) x (expIterAlt (n+1) x))
-               | otherwise = (1%(product [1..n]), 3%(product [1..n]) ):(arithCF_ (matAlt n) x (expIterAlt (n+1) x))
--- this is correct only when 0 <= x <= 1
-cfExpAlt_ (MakeCF_ x) = MakeCF_ (expIterAlt 0 x)
--- rewrite using known identities
-cfExpAlt x | x > 1 = (cfE^floorXint)*(cfExpAlt_ (x - floorXnum))
-           | x < 0 = 1/(cfExpAlt (-x))
-           | otherwise  = cfExpAlt_ x
-            where floorXint =  nearestInt x
-                  floorXnum =  fromIntegral floorXint
 {-
  - Log x 
  -}
 
--- Taylor series for g(x)
+-- Tylor series for g(w) = 1 + w/3 + w^2/5 + w^3/7 + ...
 logMat n = [[2*n-1,0,0,1],[0,0,0,2*n-1]] -- 1/(2*n-1) + xy
 logMatProd0 n = [[0,0,0,2*n-1],[2*n-1,0,0,1]] -- 1/M_(x,n)(y)
 logMatProd1 n =  [[0,0,0,2*n-1],[2*n-1,0,0,2-2*n]] -- 1/(M_(x,n)(y) - 1)
@@ -398,33 +386,12 @@ arithCFlog_ bd initM x y = takeWhile notInf (gosperLog bd (tail_ x) (tail_ y) (i
 gIter n w | n == 1    = (termToBound 1):(arithCFlog_ (3%1, ratInfinity) (logMatProd1 1) w (gIter 2 w))
           | otherwise = (termToBound 0):((6*n-3)%4, (2*n-1)%1):(arithCFlog_ ((6*n-3)%4, (2*n-1)%1) (logMatProd0 n) w (gIter (n+1) w))
 
--- g(w) = 1 + w/3 + w^2/5 + w^3/7 + ...
 g w = gIter 1 w
 cfLog x | x > cfE = 1 + (cfLog (x/cfE))
         | x < 1 = -(cfLog (1/x))
         | otherwise = 2 * z * (MakeCF_ (g (getCF_ (z^2))))
             where z = (x-1)/(x+1) -- todo; implement as single bihomographic expression
 
--- alternative implementation; for large x, use wider bound on g(w) derived from bound on x
--- (still being debugged, and probably not better anyway)
--- if 1 < x < xBound or xBound < x < 1 then 1 + w + w^2 + ... < ((a+1)^2)/(4a)
--- produce the next term if we can
-ambiguous (lo, hi) = ceiling lo < floor hi && (not (isTerm (lo, hi)))
-gIterAlt xBound n w | ambig      = (gLo, gHi): (arithCFlog_ (gLo, gHi) nextMat w (gIterAlt xBound (n+1) w))
-                    | otherwise =  (termToBound xN):(gLo, gHi): (arithCFlog_ (gLo, gHi) nextMat w (gIterAlt xBound (n+1) w))
-                        where gHi_ = ((xBound+1)^2)/(4*xBound*(2*nn-1)) -- ghci wants n to be rational in this expr?
-                              gLo_ = if xBound > 1 then (xBound^2)/(4*(xBound-1)*(2*nn-1)) else 1/(2*nn-1)
-                              nn = n%1
-                              ambig = ambiguous (gLo_, gHi_)
-                              xN = if isTerm (gLo_,gHi_) then (numerator gLo_) else  floor gHi_ -- the next term, if determined
-                              (gLo, gHi) = if ambig then (gLo_, gHi_) else invert (xN%1) (gLo_, gHi_) 
-                              nextMat = if ambig then (logMat n) else (prod xN (logMat n))
-
-gAlt xBound w = gIterAlt xBound 1 w -- w is a sequence of intervals
-cfLogAlt x = 2 * z * (MakeCF_ (gAlt xBound zSquared))
-                       where xBound = if x > 1 then (1 + (nearestInt x))%1 else fst (head (dropWhile tooWide (getCF_ x)))
-                             z = (x-1)/(x+1)
-                             zSquared = getCF_ (z^2)
 {-
  - trigonometric fuctions
  -}
