@@ -61,8 +61,8 @@ It will be convenient to consider a finite CF as ending with an infinite term $a
  
 Gosper (in an appendix to the famous HAKMEM report \cite{hakmem}) 
 developed an algorithm for performing arithmetic on two CFs, getting a CF as the result;
-the point of course is that we can do this entirely within the CF representation, making no use of floating-point operations. Straightforward implementation of the algorithm leads to infinite loops on some inputs\footnote{\href{https://srossd.com/blog/2020/gosper-1/}{https://srossd.com/blog/2020/gosper-1/}}.
-Here we present modified versions of the arithmetic algorithm, and prove that these modifications avoid all difficulties with infinite loops in the following sense: given any $\varepsilon > 0$, if the correct result is $z=[z_0,z_1,\cdots]$, our algorithm will produce a finite CF $[z_0, \cdots z_{k-1}, z'_k]$ such that 
+the point of course is that we can do this entirely within the CF representation, making no use of floating-point operations. Straightforward implementation of the algorithm leads to infinite loops\footnote{\href{https://srossd.com/blog/2020/gosper-1/}{https://srossd.com/blog/2020/gosper-1/}} on some inputs (section \ref{sec:FailToConverge}).
+Here we present modified versions of the arithmetic algorithm, and prove that these modifications avoid infinite loops in the following sense: given any $\varepsilon > 0$, if the correct result is $z=[z_0,z_1,\cdots]$, our algorithm will eventually produce a finite CF $[z_0, \cdots z_{k-1}, z'_k]$ with proof that 
 \[
 |z - [z_0, \cdots z_{k-1}, z'_k]| < \varepsilon\ .
 \]
@@ -380,7 +380,7 @@ that division is the hardest arithmetic operation, and the definition of continu
 
 
 
-\subsection{Failure to Converge}
+\subsection{Failure to Converge}\label{sec:FailToConverge}
 Our preliminary algorithm demonstrates the basic idea of CF arithmetic, but is insufficient because it can fail to converge;
 we might endlessly ingest terms of both $x$ and $y$ without ever obtaining a bihomographic expression whose floor is known. The
 simplest case is multiplying $\sqrt{2} = [1,(2)]$ by itself. The first iteration, ingesting 1 from $x$ and from $y$, gives
@@ -619,7 +619,6 @@ e = [1,2,1,1,4,1,1,6,1,1,8,1,1,10,1 \cdots ]
 and write $e^x$ as $e^{\lfloor x \rfloor}e^{x-\lfloor x \rfloor}$, using ordinary multiplication to obtain $e^{\lfloor x \rfloor}$. In either case, the floor or ceiling of $x$ can be bounded using a finite prefix of $x$.
 
 
-
 \subsection{Logarithms} We can apply the same approach to $\log x$, using the series
 \[
 \log (x) =  2 \left( \left(\frac{x-1}{x+1}\right) + \frac{1}{3}\left(\frac{x-1}{x+1}\right)^3 + \frac{1}{5}\left(\frac{x-1}{x+1}\right)^5 \cdots \right)
@@ -696,22 +695,38 @@ then $\pi = p_1$. The spigot algorithm uses the fact that
 \begin{equation}\label{eq:pi}
 \frac{27i-12}{5} \leq p_i \leq \frac{27}{5}i - \frac{216}{125} \ .
 \end{equation}
-Following the same pattern as used for transcendental functions, we could obtain the CF terms of $\pi = p_1$ using $p_i = M_n(p_{i+1})$, taking (\ref{eq:pi}) as the first interval of $p_i$. The spigot algorithm uses the same equation to produce digits; when the floor of the current expression is known to be $k$, we transform it as $M \leftarrow 10(M-k)$ to obtain an expression whose floor is the next digit.
+Following the same pattern as used for transcendental functions, we could obtain the CF terms of $\pi = p_1$ using $p_i = M_n(p_{i+1})$, taking (\ref{eq:pi}) as the first interval of $p_i$. The spigot algorithm uses the same equation to produce digits; when the floor of the current rational expression is known to be $k$, we transform it as $M \leftarrow 10(M-k)$ to obtain an expression whose floor is the next digit.
 
-In fact, in the same way, we could produce base-$b$ digits of $e^x$ (with $x$ given as a CF!) by redefining ``produce $a$" as $M(x,y) \leftarrow b(M(x,y) - a)$ when we compute $y_1(x)$;
+In fact, in the same way, we could produce base-$b$ digits of $e^x$ (with $x$ given as a CF!) by redefining $\mbox{produce}(a, M)$ as $M(x,y) \leftarrow b(M(x,y) - a)$ when we compute $y_1(x)$;
 after such a transformation, $M(x,y)$ represents a real number whose floor is the next digit, rather than the next CF term. 
-For that matter, if $x$ were given as a sequence of digits, we could read it by redefining ``ingestX $a$" as the transformation $x \leftarrow a + \frac{x}{b}$. After this transformation, $M(x,y)$ represents the same value, with $x=[a,x_1,x_2\cdots]$ replaced by $x=[x_1,x_2\cdots]$; the upper and lower bounds on $M(x,y)$ would be determined by $0 \leq x < b$ instead of $1 <  x \leq \infty$.
+For that matter, if $x$ were given as a sequence of digits, we could read it by redefining $\mbox{ingest\_x}(a,M)$ as the transformation $x \leftarrow a + \frac{x}{b}$. After this transformation, $M(x,y)$ represents the same value, with $x=[a,x_1,x_2\cdots]$ replaced by $x=[x_1,x_2\cdots]$; the upper and lower bounds on $M(x,y)$ would be determined by $0 \leq x < b$ instead of $1 <  x \leq \infty$.
+
+
+\subsection{Related Work}
+Davison \cite{DavisonCFexp} gives an algorithm for the CF terms of $e^{\alpha}$ with $\alpha$ rational;
+it is presumably more efficient than our algorithm in this case, since it computes convergents directly, using the fact that if
+\[
+\prod_{k=0}^n \begin{pmatrix} (2k+1)m+\ell & (2k+1)m \\
+                                                       (2k+1)m &  (2k+1)m-\ell \end{pmatrix} = \begin{pmatrix} p_n & q_n \\
+                                                                                                                                             r_n & s_n \end{pmatrix}
+\]
+then $p_n/r_n$ and $q_n/s_n$ approach $e^{\ell/m}$.
+
+
+We note that standard computational software packages such as Mathematica\footnote{\href{wolfram.com}{wolfram.com}} and Pari\footnote{\href{https://pari.math.u-bordeaux.fr}{https://pari.math.u-bordeaux.fr}}\footnote{\href{https://wims.univ-cotedazur.fr/~wims/wims.cgi}{https://wims.univ-cotedazur.fr/~wims/wims.cgi}} can compute CF expansions of complex expressions to high accuracy very much faster than our Haskell code.
+Our algorithms, however, can operate on real numbers defined by arbitrary sequences of CF terms $[a_0,a_1,\cdots]$,
+and could be adapted to any function defined by a Taylor series.
 
 
 \section{Arithmetic with Arbitrary Intervals}
-In the algorithm for CF arithmetic, all intervals are either ambiguous (i.e. there is an integer in the interior of the interval), or are of the form $[a,a+1)$ for integer $a$. But this potentially throws away information.
-Whenever we are able to produce an explicit output term $z_j \leftarrow [a,a+1)$, we in fact know that the tail 
+In the algorithm for CF arithmetic, all intervals are either ambiguous (i.e. there is an integer in the interior of the interval), or are of the form $[a,a+1)$ for integer $a$. But this fails to make use of all available information.
+Whenever $(M,I_x, I_y)$ is unambiguous and we can produce an explicit output term $z_j \leftarrow [a,a+1)$, we in fact know that the tail 
 \[
-a + \frac{1}{[z_{j+1}, z_{j+2},\cdots]}
+[z_j, z_{j+1},\cdots] = a + \frac{1}{[z_{j+1}, z_{j+2},\cdots]}
 \]
 lies in the possibly smaller interval $\rho(M,I_x, I_y)$, and can set $z_j \leftarrow \rho(M,I_x, I_y)$.
 
-If we generate such intervals as output then we must be able to read them as input. If $x_i = (a+\varepsilon_\ell, a+\varepsilon_u)$, we can ingest $x=a$ into $M$, and set $I_x \leftarrow (\varepsilon_u^{-1}, \varepsilon_\ell^{-1})$ instead of $I_x \leftarrow [1,\infty)$. This will yield a narrower range for $z_j$.
+If we generate such intervals as output then we must be able to read them as input. If $x_i = (a+\varepsilon_\ell, a+\varepsilon_u)$, with $0 \leq \varepsilon_\ell < \varepsilon_u <1$, we can ingest $x=a$ into $M$, and set $I_x \leftarrow (\varepsilon_u^{-1}, \varepsilon_\ell^{-1})$ instead of $I_x \leftarrow [1,\infty)$. This will yield a narrower range for $z_j$.
 
 In the same manner, suppose the current (ambiguous) bound on $x$ is $I_x = (x_{\ell}, x_{h})$, and we read an explicit term $x_i = [a,a+1)$. After ingesting $a$ into the matrix, we need not set $I_x = [1,\infty)$; we may set
 \[

@@ -313,7 +313,8 @@ between lo hi | lo < (1%2) && hi > (1%2) = (1%2)
 
 -- will always need to ingest first term of x, so just do it
 -- iteration assumes all terms >= 1
-cfSqrt (MakeCF_ x) =  if (MakeCF_ x) < 1 then 1/(cfSqrt (1/(MakeCF_ x))) else MakeCF_ $ cfSqrtIter ( ingestX (head_ x) ( [[0,1,0,0], [0,0,1,0]], nobound, nobound ) ) (tail_ x) 
+cfSqrt (MakeCF_ x) =  if (MakeCF_ x) < 1 then 1/(cfSqrt (1/(MakeCF_ x))) else MakeCF_ $ cfSqrtIter ( ingestX (head_ cleanx) ( [[0,1,0,0], [0,0,1,0]], pmInf, pmInf ) ) (tail_ cleanx) 
+                        where cleanx = dropWhile (\t -> fst t < 0) x
 -- advance to next stage of square-root computation
 -- if floor of fixed point of mat does not depend on x, we can get next
 -- term of output; else ingest another term of x into mat
@@ -370,21 +371,8 @@ cfExp_ (MakeCF_ x) = MakeCF_ (expIter 1 x)
 logMat n = [[2*n-1,0,0,1],[0,0,0,2*n-1]] -- 1/(2*n-1) + xy
 logMatProd0 n = [[0,0,0,2*n-1],[2*n-1,0,0,1]] -- 1/M_(x,n)(y)
 logMatProd1 n =  [[0,0,0,2*n-1],[2*n-1,0,0,2-2*n]] -- 1/(M_(x,n)(y) - 1)
--- force intervals to be monotonic; interval bd is inherited from last iteration
--- new bound is intersection of old bound with 'ordinary' bounds on curM
-gosperLog bd x y curM  | low == hi  = (termToBound hi):(gosperLog nobound x y (produce hi curM))   -- produce another term of output 
-                       | otherwise  = (lowR, hiR):(gosperLog (lowR, hiR) (tail_ x) (tail_ y) (ingestY (head_ y) (ingestX (head_ x) curM))) -- get next x,y
-                              where (prevLo, prevHi) = bd
-                                    (low_,hi_) = range curM
-                                    low = max (floor prevLo) low_
-                                    hi = min (floor prevHi) hi_
-                                    (lowR_, hiR_) = ratRange curM
-                                    lowR = max prevLo lowR_
-                                    hiR = min prevHi hiR_
-                              
-arithCFlog_ bd initM x y = takeWhile notInf (gosperLog bd (tail_ x) (tail_ y) (ingestY (head_ y) (ingestX (head_ x) (initM, pmInf, pmInf))))
-gIter n w | n == 1    = (termToBound 1):(arithCFlog_ (3%1, ratInfinity) (logMatProd1 1) w (gIter 2 w))
-          | otherwise = (termToBound 0):((6*n-3)%4, (2*n-1)%1):(arithCFlog_ ((6*n-3)%4, (2*n-1)%1) (logMatProd0 n) w (gIter (n+1) w))
+gIter n w | n == 1    = (termToBound 1):(arithCF_ (logMatProd1 1) w (gIter 2 w))
+          | otherwise = (termToBound 0):((6*n-3)%4, (2*n-1)%1):(arithCF_ (logMatProd0 n) w (gIter (n+1) w))
 
 g w = gIter 1 w
 cfLog x | x > cfE = 1 + (cfLog (x/cfE))
@@ -415,10 +403,13 @@ cfCosIter n w | n > 1 = (termToBound 0):(termToBound 1):((4*n*(2*n-1)-5)%5, ratI
 cfSin x = cfCos (x - cfPi/2)
 cfTan x = (cfSin x)/(cfCos x)
 
+cfRoot n x = cfExp $ (cfLog x)/n
+
 -- helpful for debugging infinite loops and slow computations
 debug n (MakeCF_  cf) = take n cf
 debugView n cf = MakeCF_ (debug n cf)
 findTerms n (MakeCF_ cf) = [ (k, (numerator.fst) (cf!!k)) | k <- [1..n], isTerm (cf!!k) ]
+seeAll (MakeCF_ intervals) = map (numerator.fst) (filter isTerm intervals)
 
 -- arcsin(x)/x
 -- asinMat n = [[(2n+1)^2,0,0,2*n+2],[0,0,0,(2*n+1)*(2*n+2)]] -- 1/(2n+1) + wy(2n+1)/(2n+2) where w = x^2
