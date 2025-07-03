@@ -367,18 +367,22 @@ cfExp_ (MakeCF_ x) = MakeCF_ (expIter 1 x)
  - Log x 
  -}
 
--- Tylor series for g(w) = 1 + w/3 + w^2/5 + w^3/7 + ...
-logMat n = [[2*n-1,0,0,1],[0,0,0,2*n-1]] -- 1/(2*n-1) + xy
-logMatProd0 n = [[0,0,0,2*n-1],[2*n-1,0,0,1]] -- 1/M_(x,n)(y)
-logMatProd1 n =  [[0,0,0,2*n-1],[2*n-1,0,0,2-2*n]] -- 1/(M_(x,n)(y) - 1)
-gIter n w | n == 1    = (termToBound 1):(arithCF_ (logMatProd1 1) w (gIter 2 w))
-          | otherwise = (termToBound 0):((6*n-3)%4, (2*n-1)%1):(arithCF_ (logMatProd0 n) w (gIter (n+1) w))
+-- Taylor series for g(w) = 1 + w/3 + w^2/5 + w^3/7 + ...
+-- log(x) = 2*z*g(z^2)
+logMat n = [[2*n-1,0,0,2*n+1],[0,0,0,2*n+1]] -- 1 + (2*n-1)/(2*n+1) xy
+gIter bd n w | upperBound <= 2 = (termToBound 1):(arithCF_ (prod 1 (logMat n)) w (gIter bd (n+1) w))
+             | otherwise = (1%1, upperBound):(arithCF_ (logMat n) w (gIter bd (n+1) w))
+                where upperBound = 1 + ((2*n-1)%(2*n+1))*bd -- lower bound is always 1%1
 
-g w = gIter 1 w
-cfLog x | x > cfE = 1 + (cfLog (x/cfE))
-        | x < 1 = -(cfLog (1/x))
-        | otherwise = 2 * z * (MakeCF_ (g (getCF_ (z^2))))
-            where z = (x-1)/(x+1) -- todo; implement as single bihomographic expression
+g bd w = gIter bd 1 w
+cfLog x = 2 * z * (MakeCF_ (g (wbound w) (getCF_ w)))
+            where z = MakeCF_ ( arithCF_ [[0,1,0,-1],[0,1,0,1]] (getCF_ x) [] ) -- (x-1)/(x+1) 
+                  w = z^2
+
+-- rational upper bound on w + w^2 + ... = w/(1-w) ; w = z^2 < 1
+-- this could be very weak when w is small (i.e. x close to 1)
+wbound w = snd (head (dropWhile tooWide bounds)) -- 'snd' is upper bound of (lo,hi)
+            where bounds = getCF_ (w/(1 - w))
 
 {-
  - trigonometric fuctions
@@ -405,12 +409,18 @@ cfTan x = (cfSin x)/(cfCos x)
 
 cfRoot n x = cfExp $ (cfLog x)/n
 
+-- arcsin(x)/x
+asinMat n = [[(2*n-1)^2,0,0,2*n*(2*n+1)],[0,0,0,2*n*(2*n+1)]] 
+cfAsin x = x * (MakeCF_ (cfAsinIter 1 (getCF_ (x^2))))
+cfAsinIter n w = (1%1, 1%1 + prodC_n):(arithCF_ (asinMat n) w (cfAsinIter (n+1) w) ) 
+                  where prodC_n = product [ ((2*k-1)^2)%(2*k*(2*k+1)) | k <- [1..n] ]
+-- add another arg for incremental computation of prodC_n
+-- immediately produce 1 for sufficiently large n
+-- check for off-by-1 error in prod
+
 -- helpful for debugging infinite loops and slow computations
 debug n (MakeCF_  cf) = take n cf
 debugView n cf = MakeCF_ (debug n cf)
 findTerms n (MakeCF_ cf) = [ (k, (numerator.fst) (cf!!k)) | k <- [1..n], isTerm (cf!!k) ]
 seeAll (MakeCF_ intervals) = map (numerator.fst) (filter isTerm intervals)
 
--- arcsin(x)/x
--- asinMat n = [[(2n+1)^2,0,0,2*n+2],[0,0,0,(2*n+1)*(2*n+2)]] -- 1/(2n+1) + wy(2n+1)/(2n+2) where w = x^2
--- cfAsin x = x * (MakeCF_ (cfAsinIter 0 (getCF_ (x^2))))

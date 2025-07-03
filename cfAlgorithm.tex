@@ -61,7 +61,7 @@ It will be convenient to consider a finite CF as ending with an infinite term $a
  
 Gosper (in an appendix to the famous HAKMEM report \cite{hakmem}) 
 developed an algorithm for performing arithmetic on two CFs, getting a CF as the result;
-the point of course is that we can do this entirely within the CF representation, making no use of floating-point operations. Straightforward implementation of the algorithm leads to infinite loops\footnote{\href{https://srossd.com/blog/2020/gosper-1/}{https://srossd.com/blog/2020/gosper-1/}} on some inputs (section \ref{sec:FailToConverge}).
+the point of course is that we can do this entirely within the CF representation, making no use of floating-point operations. Straightforward implementation of the algorithm leads to infinite loops on some inputs\footnote{\href{https://srossd.com/blog/2020/gosper-1/}{https://srossd.com/blog/2020/gosper-1/}} (section \ref{sec:FailToConverge}).
 Here we present modified versions of the arithmetic algorithm, and prove that these modifications avoid infinite loops in the following sense: given any $\varepsilon > 0$, if the correct result is $z=[z_0,z_1,\cdots]$, our algorithm will eventually produce a finite CF $[z_0, \cdots z_{k-1}, z'_k]$ with proof that 
 \[
 |z - [z_0, \cdots z_{k-1}, z'_k]| < \varepsilon\ .
@@ -402,7 +402,7 @@ as $x$ and $y$ range from one to infinity;
 similarly matrix (\ref{eq:bound3}) is between $\frac{49}{25}$ and $\frac{100}{49}$ (i.e. 1.96 to 2.0408).
 And the last ranges from $\frac{576}{289}$ to $\frac{289}{144}$, which is about 1.993 to 2.00694.
 
-The source of the problem is now clear: we should have $z=[z_0,z_1]=[2,\infty]$, but no finite number of terms can ever tell us that
+The source of the problem is now clear: we should have $z=[z_0,z_1]=[2,\infty]$, but no finite number of terms of $x$ and $y$ can ever suffice to determine that
 $z_0=2$. It is always possible that one input is in fact less than $\sqrt{2}$, so it is always possible that $z<2$ and $z_0=1$.
 
 Our approach to the problem (see \cite{Lester01} for an entirely different approach)
@@ -419,9 +419,9 @@ it will be represented internally as the sequence of half-open intervals
 \[
 [[a_0, a_0+1),  [a_1, a_1+1), \cdots]\ .
 \] 
-At the opposite extreme, the internal representation for $\sqrt{2}^2$ will consist entirely of ever-tighter bounds on the first term, i.e. the sequence of nested intervals
+At the opposite extreme, the internal representation for $(\sqrt{2})^2$ will consist entirely of ever-tighter bounds on the first term, i.e. the sequence of nested intervals
 \[
-[[\frac{16}{9},\frac{9}{4}), [\frac{49}{25},\frac{100}{49}), [\frac{576}{289},\frac{289}{144}), \cdots]\ .
+\left[ \left[\frac{16}{9},\frac{9}{4}\right), \left[\frac{49}{25},\frac{100}{49}\right), \left[\frac{576}{289},\frac{289}{144}\right), \cdots\right ]\ .
 \] 
 
 The general idea (elaborated more fully in section \ref{sec:finalAlgorithm}) is that we will generate output on \emph{every}
@@ -432,11 +432,11 @@ The general idea (elaborated more fully in section \ref{sec:finalAlgorithm}) is 
  $[\ell_k,u_k)$ on the tail $[z_k, z_{k+1}\cdots]$. The exact value of the CF is between $[z_0 \cdots z_{k-1}, \ell_k]$ and
  $[z_0 \cdots z_{k-1}, u_k]$; here we extend the usual CF notation by allowing a rational number, instead of an integer, as the last term.
 
-Note that storage of a long sequence of intervals is not an issue for implementation;
+Storage of a long sequence of intervals is not an issue for implementation;
 successive bounds on the same term are always tighter, so there is no need to retain earlier bounds when a new one is obtained. 
 
 \subsection{Extracting Terms}
-We must note that our representation of CF arithmetic makes it impossible to simply ask a question like ``what are the first
+Note that our representation of CF arithmetic makes it impossible to simply ask a question like ``what are the first
 five terms of $z = xy$?" An explicit list of terms can only be relative to a required degree of accuracy $\varepsilon$. Our arithmetic
 algorithms consume and return theoretically infinite sequences of intervals; extracting a finite sequence of terms is a separate
 ``post-processing" step, carried out only when a numerical approximation is required.
@@ -445,7 +445,7 @@ the output interval sequence which is long enough to make the difference between
 z_{k-1}, u_k]$ less than $\varepsilon$; then our approximate CF is $[z_0 \cdots z_k]$, where $z_k$ is some integer in the interval
 $[\ell_k,u_k)$. We might as well always take $z_k = \lfloor u_k \rfloor$, which is the only integer in the interval if the interval is small. 
 
-In the case of $\sqrt{2}^2$, any accuracy threshold will yield the same result, $z = [2]$.
+In the case of $z=(\sqrt{2})^2$, any $\varepsilon$ will yield the same result, $z = [2]$.
 
 
 \subsection{An Algorithm for CF Arithmetic}\label{sec:finalAlgorithm}
@@ -468,19 +468,19 @@ To retain unlimited accuracy, the bounds must be computed with exact rational ar
 \subsubsection{Recursive Definition}
 Figure (\ref{fig:twoCFarith}) presents the arithmetic algorithm as imperative pseudocode. We can also write it as a recursive function,
 which is essentially the same as our Haskell implementation.
-We first define versions of $\mbox{ingest\_x},\mbox{ingest\_y}$ that consider the bounds on $x$ and $y$. Given an unambiguous input interval,
+We first define versions of $\mbox{ingest\_x},\mbox{ingest\_y}$ that consider the bounds on $x$ and $y$. Given an explicit term $[s,s+1)$,
 \[
 \mbox{ingestBound\_x}([s,s+1), M, I_x, I_y) = 
 (\mbox{ingest\_x}(s,M), (1,\infty),I_y)
 \]
-while for an ambiguous interval
+while for an ambiguous interval $I_0$,
 \[
 \mbox{ingestBound\_x}(I_0, M, I_x, I_y) = 
 (M, I_0,I_y)
 \]
 with a similar definition for \mbox{ingestBound\_y}.
 We use the standard notation $x\:x_s$ to denote the head and tail of a list. 
-If $x,y = x_0\:x_s, y_0\:y_s$ are lists of intervals and $M$ is bihomographic, we define
+If $x = x_0\:x_s$ and $y = y_0\:y_s$ are lists of intervals and $M$ is bihomographic, we define
 \[
 \mbox{arith}(x,y, M, I_x, I_y)
 \]
@@ -588,7 +588,7 @@ M_{n,x}(y) = 1 + \frac{xy}{n} \ .
 This is a bihomographic expression with matrix $\bihomographic{1}{0}{0}{n}{0}{0}{0}{n}$. The $n^{th}$ degree Taylor approximation,
 $1 + x + x^2/2 +\cdots + x^n/{n!}$, can be written using Horner's rule as
 \[
- 1 + x \left(1 + \frac{x}{2}\left( 1 + \frac{x}{3}\left(1 + \cdots \left(1 + \frac{x}{n}\right)\right)\right) \cdots \right) = M_{(1,x)}( M_{(2,x)}( \cdots M_{(n,x)}(1) \cdots ) ) \ .
+ 1 + x \left(1 + \frac{x}{2}\left( 1 + \frac{x}{3}\left(1 + \cdots \left(1 + \frac{x}{n}\right)\right)\right) \cdots \right) = M_{(1,x)}( M_{(2,x)}( \cdots M_{(n,x)}(1) \cdots ) )
  \]
  so in the limit
  \begin{equation}\label{eq:spigot}
@@ -599,58 +599,58 @@ $1 + x + x^2/2 +\cdots + x^n/{n!}$, can be written using Horner's rule as
  y_n(x) = 1 + \frac{x}{n} + \frac{x^2}{n(n+1)} + \cdots = \lim_{m\to\infty} M_{(n,x)}( M_{(n+1,x)}( \cdots M_{(m,x)}(1) \cdots ) ) \ .
   \end{equation}
 Thus $y_n(x) = M_{(n,x)}(y_{n+1}(x))$, and $y_1(x) = e^x$.
- Comparing termwise we see that
+Assume temporarily that $x \geq 0$; we have
  \[
- |y_n(x) - 1| \leq \frac{|e^x - 1|}{n} \ .
+ y_n(x) - 1 \leq \frac{e^x - 1}{n} \ .
  \]
- Assume, temporarily, that $|x| \leq 1$. Since $\frac{1}{3} < e^x < 3$, we know that 
- \[
- y_n(x) \in (1 - \frac{2}{3n}, 1 + \frac{2}{n})
- \]
- so this can be the first (necessarily ambiguous) interval of the CF representation of $y_n(x)$.
+  We can always obtain arbitrarily tight rational bounds $\beta_{\ell} \leq x \leq \beta_{h}$ from a finite prefix of the CF representation of $x$; then  we have the rational bounds
+ \begin{equation}\label{eq:ynInterval}
+  1+\frac{\beta_{\ell}}{n} \leq y_n(x) \leq  1 + \frac{(11/4)^{\lceil\beta_{h}\rceil}-1}{n} \ .
+ \end{equation}
+ If this interval is ambiguous, it can be the first interval of the CF representation of $y_n(x)$.
 The subsequent intervals are the CF representation of $M_{(n,x)}(y_{n+1}(x))$,
 which is a bihomographic expression that can be evaluated with the arithmetic algorithm;
-the algorithm will read $(1 - \frac{2}{3(n+1)}, 1 + \frac{2}{n+1})$ as the first interval of $y_{n+1}(x)$ and so on. The infinite recursion of (\ref{eq:yn}) does not lead to an infinite loop, because we can always get one interval of $y_n(x)$ without recursion into $y_{n+1}(x)$.
-
-If $|x|>1$, we could use the weaker bound $0 < e^x < 3^{\lceil x \rceil}$. Or we could take advantage of the fact that there is an explicit formula for the CF expansion of $e$:
+the algorithm will read
 \[
-e = [1,2,1,1,4,1,1,6,1,1,8,1,1,10,1 \cdots ]
+\left(1+\frac{\beta_{\ell}}{n+1} , 1 + \frac{(11/4)^{\lceil\beta_{h}\rceil}-1}{n+1}\right)
 \]
-and write $e^x$ as $e^{\lfloor x \rfloor}e^{x-\lfloor x \rfloor}$, using ordinary multiplication to obtain $e^{\lfloor x \rfloor}$. In either case, the floor or ceiling of $x$ can be bounded using a finite prefix of $x$.
+as the first interval of $y_{n+1}(x)$ and so on. The infinite recursion of (\ref{eq:yn}) does not lead to an infinite loop, because we can always get one interval of $y_n(x)$ without recursion into $y_{n+1}(x)$.
+
+If the interval (\ref{eq:ynInterval}) is unambiguous, giving $a$ as the first term of $y_n(x)$, we can immediately produce $a$, followed by applying the arithmetic algorithm to
+\[
+\frac{1}{M_{(n,x)}(y_{n+1}(x)) - a} \ .
+\]
+
+If $x < 0$, we can use the identity $e^{-x} = 1/e^x$. Note that it is not always possible to determine the sign of $x$ in finite time; in the most extreme case, $x=0$ could be represented by an infinite sequence of ambiguous bounds. Even if $x \neq 0$, we cannot bound the amount of computation needed to obtain $\beta_{\ell} > 0$ or $\beta_h < 0$. However it is not necessary to determine the sign of $x$ for very small $|x|$, since (\ref{eq:ynInterval}) is still valid when $-1 < \beta_{\ell} < 0$ and $\beta_h > 0$.
 
 
-\subsection{Logarithms} We can apply the same approach to $\log x$, using the series
+\subsection{Logarithms} We can apply the same approach to $\log(x)$, using the series
 \[
 \log (x) =  2 \left( \left(\frac{x-1}{x+1}\right) + \frac{1}{3}\left(\frac{x-1}{x+1}\right)^3 + \frac{1}{5}\left(\frac{x-1}{x+1}\right)^5 \cdots \right)
 \]
-which converges for all $x > 0$. Let $z=\frac{x-1}{x+1}$ and $w=z^2$, and define
+which converges for all $x > 0$. Let $z=\frac{x-1}{x+1}$, and define
 \[
-g(w) = 1 + \frac{w}{3} + \frac{w^2}{5} + \frac{w^3}{7} + \cdots = \left(1 + w\left(\frac{1}{3} + w\left(\frac{1}{5} \cdots \right. \right. \right. \ .
+g(w) = 1 + \frac{w}{3} + \frac{w^2}{5} + \frac{w^3}{7} + \cdots = 1 + \frac{w}{3}\left(1 + \frac{3w}{5}\left(1 + \frac{5w}{7}\left(1 +\cdots \right. \right. \right.\ .
 \]
-Then $\log x = 2zg(w)$, so we only need consider how to compute $g(w)$, where $0 \leq w \leq 1$.
+Then $\log(x) = 2zg(z^2)$, so we only need consider how to compute $g(w)$ with $0 \leq w \leq 1$.
 The series for $g(w)$ can be obtained by iterating
 \[
-M_{(n,w)}(y) = \frac{1}{2n-1} + wy 
+M_{(n,w)}(y) = 1 + \frac{2n-1}{2n+1}wy 
 \]
-i.e. the bihomographic expression $\bihomographic{2n-1}{0}{0}{1}{0}{0}{0}{2n-1}$.
+i.e. the bihomographic expression $\bihomographic{2n-1}{0}{0}{2n+1}{0}{0}{0}{2n+1}$.
 So we define
 \[
-g_n(w) = \frac{1}{2n-1}  + \frac{w}{2n+1} + \frac{w^2}{2n+3} \cdots = \lim_{m\to\infty} M_{(n,w)}( M_{(n+1,w)}( \cdots M_{(m,w)}(1/2m+1) \cdots ) ) \ .
+g_n(w) = 1  + \sum_{k=1}^{\infty}\frac{2n-1}{2n+2k-1}w^k= \lim_{m\to\infty} M_{(n,w)}( M_{(n+1,w)}( \cdots M_{(m,w)}(1) \cdots ) ) \ .
 \]
-In particular $g_1(w) = g(w)$, and $g_n(w) = M_{(n,w)}(g_{n+1}(w))$. Since $w$ is nonnegative, we know that $g_n(w) \geq \frac{1}{2n-1}$.
-The upper bound, however, goes to infinity as $w$ approaches 1, i.e. as $x$ approaches zero or infinity. So let us assume temporarily that $1<x<e$; then 
+In particular $g_1(w) = g(w)$, and $g_n(w) = M_{(n,w)}(g_{n+1}(w))$. Since $w$ is nonnegative, we have
+\begin{equation}\label{eq:logbound}
+1 \leq g_n(w) \leq 1 + \frac{2n-1}{2n+1}\sum_{k=1}^{\infty} w^k = 1+\frac{2n-1}{2n+1}\frac{w}{1-w}\ .
+\end{equation}
+A finite prefix of the representation of $x$ will suffice to obtain a rational upper bound $B_x$ on $\frac{w}{1-w}$, so the first interval of $g_n(w)$ can be $(1, 1+\frac{2n-1}{2n+1}B_x)$, followed by applying the arithmetic algorithm to $M_{(n,w)}(g_{n+1}(w))$. However, if $\frac{2n-1}{2n+1}B_x \leq 1$, we can immediately produce 1 as the first term, followed by applying the
+arithmetic algorithm to
 \[
-|z| \leq \frac{e-1}{e+1} < \frac{3-1}{3+1} = \frac{1}{2}
+\frac{1}{M_{(n,w)}(g_{n+1}(w)) - 1}\ .
 \]
-and $w < \frac{1}{4}$, implying $g_n(w) < \frac{4}{3(2n-1)}$.
-For $n>1$, we can immediately produce zero as the first explicit term, and the next interval is $(\frac{3(2n-1)}{4}, 2n-1)$;
-subsequent intervals are obtained by applying the CF arithmetic algorithm to
-\[
-\frac{1}{M_{(n,w)}(g_{n+1}(w))} = \frac{2n-1}{(2n-1)wg_{n+1}(w)+ 1} \ .
-\]
-For $n=1$ we produce the explicit term $1$, then  $(3,\infty)$ and the rest of  $\frac{1}{M_{(1,w)}(g_2(w))-1}$.
-
-For other values of $x$  we can use the identities $\log(x)=1+\log(x/e)$ and $\log(x) = -\log(1/x)$ . 
 
 
 \subsection{Trigonometric Functions}
@@ -676,9 +676,12 @@ This interval in turn lets us immediately produce 1; then
 \[
  \frac{4n(2n-1)-5}{5} \leq \left(\frac{1}{M_{n,w}(c_{n+1}(w))} - 1 \right)^{-1} < \infty
 \]
-and we apply the arithmetic algorithm to $(1/M_{n,w}(c_{n+1}(w)) - 1) ^{-1}$
+and subsequent intervals come from applying the arithmetic algorithm to
+\[
+\left(\frac{1}{M_{n,w}(c_{n+1}(w))} - 1\right) ^{-1} \ .
+\]
 
-For $\frac{\pi}{2} \leq |x| \leq \pi$ we use $\cos(x) = -\cos(\pi - x)$, and for all other values $\cos(x) = \cos(x \pm 2\pi)$; see section \ref{sec:spigot} for computing the CF expansion of $\pi$.
+For $\frac{\pi}{2} \leq |x| \leq \pi$ we use $\cos(x) = -\cos(\pi - x)$, and for all other values $\cos(x) = \cos(x \pm 2\pi)$; see section \ref{sec:spigot} for computing the CF expansion of $\pi$. We then define $\sin(x) = \cos(x-\pi/2)$ and $\tan(x)=\sin(x)/\cos(x)$.
 
 
 \subsection{Spigot Algorithms}\label{sec:spigot}
@@ -712,10 +715,9 @@ it is presumably more efficient than our algorithm in this case, since it comput
 \]
 then $p_n/r_n$ and $q_n/s_n$ approach $e^{\ell/m}$.
 
-
 We note that standard computational software packages such as Mathematica\footnote{\href{wolfram.com}{wolfram.com}} and Pari\footnote{\href{https://pari.math.u-bordeaux.fr}{https://pari.math.u-bordeaux.fr}}\footnote{\href{https://wims.univ-cotedazur.fr/~wims/wims.cgi}{https://wims.univ-cotedazur.fr/~wims/wims.cgi}} can compute CF expansions of complex expressions to high accuracy very much faster than our Haskell code.
-Our algorithms, however, can operate on real numbers defined by arbitrary sequences of CF terms $[a_0,a_1,\cdots]$,
-and could be adapted to any function defined by a Taylor series.
+Our algorithms, however, can operate on real numbers defined by arbitrary sequences of CF terms $[a_0,a_1,\cdots]$; more generally, on any number defined by converging sequences of rational upper and lower bounds.
+The algorithms could also be adapted to other functions defined by Taylor series, if we can obtain appropriate bounds in the same manner as (\ref{eq:ynInterval}) and (\ref{eq:logbound}).
 
 
 \section{Arithmetic with Arbitrary Intervals}
