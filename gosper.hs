@@ -205,9 +205,10 @@ instance Show CF where
 
 -- better algorithm for displaying prefix to desired accuracy
 -- advance current state; multiply matrix by [[n,1],[1,0]]
-matmult [[pp, p],[qq,q]] n | n == infinity = [[infinity,pp],[infinity,qq]]
+matmult [[pp, p],[qq,q]] n | n == infinity = [[pp,pp],[qq,qq]]
                            | otherwise = [[n*pp+p,pp],[n*qq+q,qq]]
-advApprox (terms, matrix, lastBound, unread) | isTerm xi = (terms++[n], matmult matrix n, nobound, tail_ unread)
+advApprox (terms, matrix, lastBound, unread) | n == infinity = (terms, matmult matrix n, nobound, [])
+                                             | isTerm xi = (terms++[n], matmult matrix n, nobound, tail_ unread)
                                              | otherwise = (terms, matrix, xi, tail_ unread)
                                                 where xi = head_ unread
                                                       n = numerator (fst xi)
