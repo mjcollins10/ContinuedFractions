@@ -428,15 +428,22 @@ The general idea (elaborated more fully in section \ref{sec:finalAlgorithm}) is 
  iteration of the arithmetic algorithm; when we cannot produce the next term of $z$, we output upper and lower bounds on the current
  homographic matrix, leaving the matrix unchanged. Reading such output, there can be no ambiguity about the term to which a bound 
  applies; the first bound applies to $[z_0,z_1\cdots]$, and as soon as we encounter an explicit term $[a,a+1)$ we know that $z_k=a$ and the next bound will apply to $[z_{k+1}, z_{k+2}\cdots]$. 
- This implies that any finite prefix of the output sequence will determine a finite prefix $[z_0 \cdots z_{k-1}]$ of the actual CF, followed by a bound
+ This implies that any finite prefix of the output sequence will determine a finite prefix $[z_0 \cdots z_{k-1}]$ of $z$, followed by a bound
  $[\ell_k,u_k)$ on the tail $[z_k, z_{k+1}\cdots]$. The exact value of $z$ is between $[z_0 \cdots z_{k-1}, \ell_k]$ and
  $[z_0 \cdots z_{k-1}, u_k]$, if we extend the usual CF notation by allowing a rational number, instead of an integer, as the last term.
 
 Storage of a long sequence of intervals is not an issue for implementation;
-successive bounds on the same term are always tighter, so there is no need to retain earlier bounds when a new one is obtained. 
+successive bounds on the same term are always tighter, so there is no need to retain earlier bounds when a new one is obtained.
+
+A sequence of intervals will represent a real number if every ambiguous interval $I$ is immediately followed
+either by another ambiguous interval $I' \subset I$, or by an integer term $a$ with $a \in I$;
+if the sequence ends with an infinite sequence of ambiguous intervals, the intersection of that infinite sequence must be a single integer $a$.
+We call such a sequence \emph{valid}.
+It will be easy to verify that, if $x$ and $y$ are valid, the result of the arithmetic algorithm $z = M(x,y)$ is valid.
+The question of validity will become somewhat more subtle when we consider transcendental functions of a CF.
 
 \subsection{Extracting Terms}
-Note that our representation of CF arithmetic makes it impossible to simply ask a question like ``what are the first
+Note that our interval representation of CF arithmetic makes it impossible to simply ask a question like ``what are the first
 five terms of $z = xy$?" An explicit list of terms can only be relative to a required degree of accuracy $\varepsilon$. Our arithmetic
 algorithms consume and return theoretically infinite sequences of intervals; extracting a finite sequence of terms is a separate
 ``post-processing" step, carried out only when a numerical approximation is required.
@@ -462,7 +469,7 @@ does not determine the next term of the input), we replace the bound $I_x$ or $I
 
 When $M$ is unambiguous with $k = \lfloor M(x,y) \rfloor$, we output $[k,k+1)$ and modify $M$ as before with $M \leftarrow \mbox{produce}(k,M)$;
 the intervals $I_x$ and $I_y$ do not change. Otherwise we leave $M$ unchanged and output the interval from min to max of $M(x,y)$ subject to $x \in I_x, y \in I_y$:
-denote this interval $\rho\left(\abcd, I_x, I_y\right)$.
+denote this interval $\rho\left(M, I_x, I_y\right)$.
 These bounds are easily computed, see section (\ref{sec:ComputeBounds}).
 To retain unlimited accuracy, the bounds must be computed with exact rational arithmetic.
 
@@ -599,30 +606,55 @@ $1 + x + x^2/2 +\cdots + x^n/{n!}$, can be written using Horner's rule as
  y_n(x) = 1 + \frac{x}{n} + \frac{x^2}{n(n+1)} + \cdots = \lim_{m\to\infty} M_{(n,x)}( M_{(n+1,x)}( \cdots M_{(m,x)}(1) \cdots ) ) \ .
   \end{equation}
 Thus $y_n(x) = M_{(n,x)}(y_{n+1}(x))$, and $y_1(x) = e^x$.
-Assume temporarily that $x \geq 0$; we have
+Assume that $x \geq 0$ (otherwise we can use the identity $e^{-x} = 1/e^x$); we have
  \[
  y_n(x) - 1 \leq \frac{e^x - 1}{n} \ .
  \]
-  We can always obtain arbitrarily tight rational bounds $\beta_{\ell} \leq x \leq \beta_{h}$ from a finite prefix of the CF representation of $x$; since $e < 3$  we have the rational bounds
+  We can always obtain arbitrarily tight rational bounds $x_{\ell} \leq x \leq x_{h}$ from a finite prefix of the CF representation of $x$; since $e < 3$  we have the rational bounds
  \begin{equation}\label{eq:ynInterval}
-  1+\frac{\beta_{\ell}}{n} \leq y_n(x) \leq  1 + \frac{3^{\lceil\beta_{h}\rceil}-1}{n} \ .
+  1+\frac{x_{\ell}}{n} \leq y_n(x) \leq  1 + \frac{3^{\lceil x_{h}\rceil}-1}{n} \ .
  \end{equation}
  If this interval is ambiguous, it can be the first interval of the CF representation of $y_n(x)$.
 The subsequent intervals are the CF representation of $M_{(n,x)}(y_{n+1}(x))$,
 which is a bihomographic expression that can be evaluated with the arithmetic algorithm;
 the algorithm will read
 \[
-\left(1+\frac{\beta_{\ell}}{n+1} , 1 + \frac{(11/4)^{\lceil\beta_{h}\rceil}-1}{n+1}\right)
+\left(1+\frac{x_{\ell}}{n+1} , 1 + \frac{3^{\lceil x_{h}\rceil}-1}{n+1}\right)
 \]
 as the first interval of $y_{n+1}(x)$ and so on. The infinite recursion of (\ref{eq:yn}) does not lead to an infinite loop, because we can always get the first interval of $y_n(x)$ without recursion into $y_{n+1}(x)$.
+
+There is one further point to consider; the first interval of $M_{(n,x)}(y_{n+1}(x))$ might not be a subset of (\ref{eq:ynInterval}). Since both intervals contain $y_n(x)$, we can take their intersection as the second interval of $y_n(x)$. We might need to continue taking such intersections as long as $M_{(n,x)}(y_{n+1}(x))$ produces ambiguous terms. 
 
 If the interval (\ref{eq:ynInterval}) is unambiguous, giving $a$ as the first term of $y_n(x)$, we can immediately produce $a$, followed by applying the arithmetic algorithm to
 \[
 \frac{1}{M_{(n,x)}(y_{n+1}(x)) - a} \ .
 \]
 
-If $x < 0$, we can use the identity $e^{-x} = 1/e^x$. Note that it is not always possible to determine the sign of $x$ in finite time; in the most extreme case, $x=0$ could be represented by an infinite sequence of ambiguous bounds. Even if $x \neq 0$, we cannot bound the amount of computation needed to obtain $\beta_{\ell} > 0$ or $\beta_h < 0$. However it is not necessary to determine the sign of $x$ for very small $|x|$, since (\ref{eq:ynInterval}) is still valid when $-1 < \beta_{\ell} < 0$ and $\beta_h > 0$.
+\subsubsection{Validity of the Algorithm}\label{sec:validity} At this point we have given an algorithm which produces a sequence of intervals for each $y_n(x)$; it remains to prove that the sequence of intervals representing $y_1(x)$ is in fact valid as defined in section \ref{sec:FailToConverge}.
+The properties of the arithmetic algorithm only guarantee that, if $x$ and $y_n(x)$ are valid sequences of intervals, then $y_{n-1}(x)$ is valid.
 
+The algorithm already guarantees that successive ambiguous intervals will be nested; we must prove that the upper and lower bounds converge to the same point. In other words we must prove that, for any $\varepsilon > 0$, we eventually obtain a prefix $[I_0, I_1,\cdots I_k]$ of  $y_1(x)$ which confines  $y_1(x)$ within an interval of width $\leq \varepsilon$; we say that $y_1(x)$ is $\varepsilon$-\emph{bounded}.
+
+So suppose that at some point we have ingested enough of  $y_{n+1}(x)$ to have $y_{n+1}(x)$ be $\varepsilon'$-bounded, with $y_\ell \leq y_{n+1}(x) \leq y_\ell + \varepsilon'$. The definition of $M_{(n,x)}$, along with $x_{\ell} \leq x \leq x_{h}$,  implies that  $y_n(x)$ is $\varepsilon$-bounded if
+\[
+\varepsilon' \leq \frac{n}{x_h}\varepsilon - \frac{x_h - x_\ell}{x_h}y_\ell
+\]
+But $\frac{x_h - x_\ell}{x_h}$ approaches zero as we ingest more of $x$, while $y_\ell$ is bounded above by a constant, so eventually it will suffice to have
+\[
+\varepsilon' \leq \frac{n}{2x_h}\varepsilon
+\]
+
+Thus $y_1(x)$ is $\varepsilon$-bounded if some $y_n(x)$ is $\varepsilon'$-bounded with
+\[
+\varepsilon' \leq \frac{(n-1)!}{(2x_h)^{n-1}}\varepsilon \ .
+\]
+Now $\frac{(n-1)!}{(2x_h)^{n-1}}$ approaches infinity, while our algorithm immediately bounds each $y_n(x)$ within an interval of width
+\[
+ \frac{3^{\lceil x_{h}\rceil}-1 - x_{\ell}}{n}
+\]
+which approaches zero; therefore some $y_n(x)$ will be $\varepsilon'$-bounded as required. The CF will converge to the correct value $e^x$, since all intervals bounding $y_1(x)$ by construction contain $e^x$.
+
+%\subsubsection{Large and Negative $x$} If $x < 0$, we can use the identity $e^{-x} = 1/e^x$. Note that it is not always possible to determine the sign of $x$ in finite time; in the most extreme case, $x=0$ could be represented by an infinite sequence of ambiguous bounds. Even if $x \neq 0$, we cannot bound the amount of computation needed to obtain $\beta_{\ell} > 0$ or $\beta_h < 0$. However it is not necessary to determine the sign of $x$ for very small $|x|$, since (\ref{eq:ynInterval}) is still valid when $-1 < \beta_{\ell} < 0$ and $\beta_h > 0$.
 
 \subsection{Logarithms} We can apply the same approach to $\log(x)$, using the series
 \[
@@ -651,6 +683,11 @@ arithmetic algorithm to
 \[
 \frac{1}{M_{(n,w)}(g_{n+1}(w)) - 1}\ .
 \]
+
+\subsubsection{Validity} Proceeding along the same lines as section (\ref{sec:validity}), $g_n(w)$ will be $\varepsilon$-bounded if
+$g_{n+1}(w)$ is $\frac{2n+1}{(2n-1)\hat{w}}\varepsilon$-bounded for some $w < \hat{w} < 1$; so $g_1(w)$ will be $\varepsilon$-bounded if some $g_n(w)$ is
+$\frac{2n+3}{\hat{w}^{n-1}}\varepsilon$-bounded. This width approaches infinity,
+while the algorithm immediately confines each $g_n(w)$ in an interval no wider than the constant $B_x$.
 
 
 \subsection{Trigonometric Functions}
@@ -683,6 +720,7 @@ and subsequent intervals come from applying the arithmetic algorithm to
 
 For $\frac{\pi}{2} \leq |x| \leq \pi$ we use $\cos(x) = -\cos(\pi - x)$, and for all other values $\cos(x) = \cos(x \pm 2\pi)$; see section \ref{sec:spigot} for computing the CF expansion of $\pi$. We then define $\sin(x) = \cos(x-\pi/2)$ and $\tan(x)=\sin(x)/\cos(x)$.
 
+Proof of validity is similar to the proof for $e^x$.
 
 \subsection{Spigot Algorithms}\label{sec:spigot}
 Expressions like (\ref{eq:spigot}), representing an infinite sum as an infinitely nested sequence of rational functions, are central to the spigot algorithm\cite{Gibbons2016,Rabinowitz2016} for computing digits of $\pi$. One version of that algorithm uses Gosper's ``accelerated" series \cite{acceleration}:
@@ -700,9 +738,17 @@ then $\pi = p_1$. The spigot algorithm uses the fact that
 \end{equation}
 Following the same pattern as used for transcendental functions, we could obtain the CF terms of $\pi = p_1$ using $p_i = M_n(p_{i+1})$, taking (\ref{eq:pi}) as the first interval of $p_i$. The spigot algorithm uses the same equation to produce digits; when the floor of the current rational expression is known to be $k$, we transform it as $M \leftarrow 10(M-k)$ to obtain an expression whose floor is the next digit.
 
-In fact, in the same way, we could produce base-$b$ digits of $e^x$ (with $x$ given as a CF!) by redefining $\mbox{produce}(a, M)$ as $M(x,y) \leftarrow b(M(x,y) - a)$ when we compute $y_1(x)$;
+In fact, in the same way, we could produce base-$b$ digits of $e^x$ (with $x$ given as a CF!) by redefining $\mbox{produce}(a, M)$ as
+\[
+M(x,y) \leftarrow b(M(x,y) - a)
+\]
+when we compute $y_1(x)$;
 after such a transformation, $M(x,y)$ represents a real number whose floor is the next digit, rather than the next CF term. 
-For that matter, if $x$ were given as a sequence of digits, we could read it by redefining $\mbox{ingest\_x}(a,M)$ as the transformation $x \leftarrow a + \frac{x}{b}$. After this transformation, $M(x,y)$ represents the same value, with $x=[a,x_1,x_2\cdots]$ replaced by $x=[x_1,x_2\cdots]$; the upper and lower bounds on $M(x,y)$ would be determined by $0 \leq x < b$ instead of $1 <  x \leq \infty$.
+For that matter, if $x$ were given as a sequence of digits, we could read it by redefining $\mbox{ingest\_x}(a,M)$ as the transformation
+\[
+x \leftarrow a + \frac{x}{b} \ .
+\]
+ After this transformation, $M(x,y)$ represents the same value, with $x=[a,x_1,x_2\cdots]$ replaced by $x=[x_1,x_2\cdots]$; the upper and lower bounds on $M(x,y)$ would be determined by $0 \leq x < b$ instead of $1 <  x \leq \infty$.
 
 
 \subsection{Related Work}
@@ -717,7 +763,7 @@ then $p_n/r_n$ and $q_n/s_n$ approach $e^{\ell/m}$.
 
 We note that standard computational software packages such as Mathematica\footnote{\href{wolfram.com}{wolfram.com}} and Pari\footnote{\href{https://pari.math.u-bordeaux.fr}{https://pari.math.u-bordeaux.fr}}\footnote{\href{https://wims.univ-cotedazur.fr/~wims/wims.cgi}{https://wims.univ-cotedazur.fr/~wims/wims.cgi}} can compute CF expansions of complex expressions to high accuracy very much faster than our Haskell code.
 Our algorithms, however, can operate on real numbers defined by arbitrary sequences of CF terms $[a_0,a_1,\cdots]$; more generally, on any number defined by converging sequences of rational upper and lower bounds.
-The algorithms could also be adapted to other functions defined by Taylor series, if we can obtain appropriate bounds in the same manner as (\ref{eq:ynInterval}) and (\ref{eq:logbound}).
+The algorithms could also be adapted to other functions defined by Taylor series, if we can obtain appropriate bounds in the same manner as (\ref{eq:ynInterval}) and (\ref{eq:logbound}), along with corresponding proofs of convergence.
 
 
 \section{Arithmetic with Arbitrary Intervals}
@@ -737,6 +783,25 @@ I_x = \left(\frac{1}{\min(x_h,a+1) - a}, \frac{1}{\max(x_{\ell},a) - a}\right) \
 Such an optimization might be useful for transcendental functions, which by our construction will include many ambiguous intervals. But there is no guarantee that the more precise representation would give any computational advantage, since more computation is required to manipulate the tighter bounds.
 
 
+\section{Optimizing Computation of $e^x$ and $\log(x)$}
+In section (\ref{sec:validity}), the larger $x$ is, the larger $n$ will have to be before $y_n(x)$ is bounded in  a sufficiently small interval. In the algorithm, this corresponds to recursing more deeply into $M_{(1,x)}( M_{(2,x)}( \cdots ) )$ before we get tight bounds on $y_1(x)$. Our Haskell implementation computes $y_1(x)$ only for $0 \leq x < 1$; when $x>1$ we use
+\[
+e^x = e^{\left\lfloor x \right\rfloor}e^{x - \left\lfloor x \right\rfloor} \ .
+\]
+Ordinary multiplication can be used to obtain $e^{\left\lfloor x \right\rfloor}$, since
+\[
+e = [2,1,2,1,1,4,1,1,6,1,1,8,1,1,10,\cdots] \ .
+\]
+Indeed, when the fractional part of $x$ is greater than $\frac{1}{2}$ we could use
+\[
+\sqrt{e} = [1,1,1,1,5,1,1,9,1,1,13\cdots]
+\]
+and $e^x = e^{\left\lfloor x \right\rfloor }e^{x - \left\lfloor x \right\rfloor- \frac{1}{2}}\sqrt{e}$.
+
+Similarly, computation of $g(w)$ recurses less deeply when $w$ is small, i.e. when $x$ is close to 1; for large $x$ it may be better to use
+\[
+\log(x) = 1 + \log(x/e) \ .
+\]
 
 \bibliographystyle{plain}
 \bibliography{cfAlgorithm}
