@@ -159,12 +159,12 @@ instance Fractional CF where
 instance Eq CF where
   -- true iff abs(x-y) <= epsDefault, i.e. eqWithin epsDefault
   x == y = containedIn 0 (lohi aprxState)
-             where aprxState = approxUntil epsDefault ([], [[1,0],[0,1]], pmInf, getCF_ (x-y))    
+             where aprxState = approxUntil (narrowerThan epsDefault) ([], [[1,0],[0,1]], pmInf, getCF_ (x-y))    
 
 instance Ord CF where
   -- true iff y >= x - epsDefault
   x <= y = below 0 (lohi aprxState)
-             where aprxState = approxUntil epsDefault ([], [[1,0],[0,1]], pmInf, getCF_ (y-x))   
+             where aprxState = approxUntil (narrowerThan epsDefault) ([], [[1,0],[0,1]], pmInf, getCF_ (y-x))   
 containedIn t (lo, hi) = t >= lo && t <= hi
 below       t (lo, hi) = t <= hi
 above       t (lo, hi) = t >= lo
@@ -183,7 +183,7 @@ cfToFloatWithin eps x = fracEval (cfToTermsWithin eps x)
 cfToRat x             = ratEval $ cfToTerms x
 cfToRatWithin eps x   = ratEval $ cfToTermsWithin eps x
 eqWithin eps x y      = containedIn 0 (lohi aprxState)
-                          where aprxState = approxUntil eps ([], [[1,0],[0,1]], pmInf, getCF_ (x-y))   
+                          where aprxState = approxUntil (narrowerThan eps) ([], [[1,0],[0,1]], pmInf, getCF_ (x-y))   
 
 floatToCFterms x | x == floor_x   = [floor x]
                  | otherwise      = (floor x):(floatToCFterms (1/(x - floor_x)))
@@ -212,11 +212,12 @@ advApprox (terms, matrix, lastBound, unread) | n == infinity = (terms, matmult m
                                              | otherwise = (terms, matrix, xi, tail_ unread)
                                                 where xi = head_ unread
                                                       n = numerator (fst xi)
-                                                    
-approxUntil eps curState = if narrowerThan eps curState then curState else approxUntil eps (advApprox curState) 
+-- approx until state satisifies predicate p                                                    
+approxUntil p curState = if p curState then curState else approxUntil p (advApprox curState) 
 -- get upper, lower bounds on value of CF
 inOrder (a,b) = if a < b then (a,b) else (b,a)
-lohi (terms, [[pp,p],[qq,q]], lastBound, unread) | lastBound == nobound = inOrder ((pp+p)%(qq+q), pp%qq)
+safeDiv n d = if d==0 then (if n > 0 then ratInfinity else -ratInfinity) else n%d
+lohi (terms, [[pp,p],[qq,q]], lastBound, unread) | lastBound == nobound = inOrder ((pp+p)%(qq+q), safeDiv pp qq)
                                                  | otherwise = inOrder (ratMult lo [[pp,p],[qq,q]], ratMult hi [[pp,p],[qq,q]])
                                                     where (lo,hi) = lastBound
 -- insert rational number as final term of CF
@@ -227,7 +228,7 @@ ratMult a [[pp,p],[qq,q]] = (pp*n + p*d)%(qq*n+q*d)
 narrowerThan eps (t,m,b,u) = hi-lo  < eps
                         where (lo,hi) = lohi (t,m,b,u)   
 approx eps (MakeCF_ x) = t ++ lastTermApprox
-                         where (t,m,b,u) = approxUntil eps ([], [[1,0],[0,1]], pmInf, x) 
+                         where (t,m,b,u) = approxUntil (narrowerThan eps) ([], [[1,0],[0,1]], pmInf, x) 
                                lastTermApprox = if b == nobound then [] else [floor (snd b)]
 
 {-
@@ -418,6 +419,20 @@ cfAsinIter n w = (1%1, 1%1 + prodC_n):(arithCF_ (asinMat n) w (cfAsinIter (n+1) 
 -- add another arg for incremental computation of prodC_n
 -- immediately produce 1 for sufficiently large n
 -- check for off-by-1 error in prod
+ 
+-- approx until floor is known
+-- this can cause infinite loop; should be used only when x is known to be irrational
+knownFloor (t,m,b,u) = (floor lo) == (floor hi)
+                       where (lo, hi) = lohi (t,m,b,u)
+cfFloor (MakeCF_ x) = t!!0
+                         where initState =  ([], [[1,0],[0,1]], pmInf, x)  
+                               (t,m,b,u) = (approxUntil knownFloor initState)
+
+-- represent CF in factorial base
+fbase (MakeCF_ x) = fbase_ 1 (MakeCF_ x)
+fbase_ n x = c:(fbase_ (n+1) (nx - (makeCF [c])))
+           where nx = n*x
+                 c = cfFloor nx 
 
 -- helpful for debugging infinite loops and slow computations
 debug n (MakeCF_  cf) = take n cf
