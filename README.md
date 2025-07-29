@@ -64,7 +64,9 @@ We can also do comparison to a specified accuracy:
 	*Main> eqWithin (2**(-14)) (x^2) 2
 	False
 
-Note that there is no function which, given integer `n`, will simply return the first `n`  terms of a CF. To see why, consider asking for the first few terms of `sqrt2^2`. Any terminating computation can only make use of some finite prefix of the infinte list `[1,2,2,2 ...]`. But no such prefix is enough to rule out the possibility that the thing being squared is slightly less than the square root of 2; if that is the case, the first term should be 1. Otherwise it should be 2. So it is not always meaningful to ask for terms of a CF without reference to a degree of accuracy. The function `getCF_` returns the underlying data structure, which is of type `[(Ratio Integer, Ratio Integer)]`.
+Note that there is no function which, given integer `n`, will simply return the first `n`  terms of a CF. To see why, consider asking for the first few terms of `sqrt2^2`. Any terminating computation can only make use of some finite prefix of the infinte list `[1,2,2,2 ...]`. But no such prefix is enough to rule out the possibility that the thing being squared is slightly less than the square root of 2; if that is the case, the first term should be 1. Otherwise it should be 2. So it is not always meaningful to ask for terms of a CF without reference to a degree of accuracy. For debugging and experimentation, we do provide the function `seeAll`, which returns the (possibly infinite) list of integer terms. Applied to something like `sqrt2^2`, however, this will go into an infinite loop without ever generating even the first element of the list.
+
+The function `getCF_` returns the underlying data structure, which is a possibly infinite list of type `[(Ratio Integer, Ratio Integer)]`.
 
 We have also implemented Gosper's algorithm for extracting the square root of a CF:
 
@@ -93,7 +95,6 @@ We have also implemented Gosper's algorithm for extracting the square root of a 
 	
 We can also compute exponentials, logs, and trig functions (see cfAlgorithm.tex for details of how this is implemented). 
 
-
 	
 	*Main> cfToTermsWithin (1%(2^128)) cfPi -- infinite precision
 	[3,7,15,1,292,1,1,1,2,1,3,1,14,2,1,1,2,2,2,2,1,84,2,1,1,15,3,13,1,4,2,6,6,104]
@@ -110,12 +111,12 @@ We can also compute exponentials, logs, and trig functions (see cfAlgorithm.tex 
 	*Main> cfLog (cfExp cfPi)
 	cf[3,7,15,1,292,1,2]
 	*Main> 
-	*Main> cfCos (cfPi/3)
+	*Main> cfCos (cfPi/3) -- 1/2
 	cf[0,2]
 	*Main> cfCos (cfPi/4) -- 1/(sqrt 2)
 	cf[0,1,2,2,2,2,2,2,2,2,2,2,2,2,4]
 	
 ## TODO
 * Sanity checking; return useful error if we try to construct CF with negative terms, take square root of negative number, et cetera.
-* Make CF a `Floating` class
+* Make CF an instance of `Floating` and `realFrac`.
 * Integrate with other Haskell packages for high-precision and arbitrary-precision arithmetic: Data.Scientific, AERN, et cetera.
