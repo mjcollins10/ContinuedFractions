@@ -5,10 +5,10 @@
 
 import Data.Ratio -- get (%) operator for rational arithmetic
 
-termToBound n =  (n%1, (n+1)%1) -- generalized internal representation of CF term n
+termToInterval n = (n%1, (n+1)%1) -- generalized internal representation of CF term n
 -- a bound of the form (n,n+1) gives us n as the next CF term
 isTerm (lo,hi) = (denominator lo == 1) && (denominator hi == 1) && (hi == 1 + lo || lo == ratInfinity)
-boundToTerm (lo, hi) = numerator lo
+intervalToTerm (lo, hi) = numerator lo
 infinity :: Integer
 infinity = 999999999999
 ratInfinity = infinity%1
@@ -117,7 +117,7 @@ tail_ xs = tail xs
 --                    (current bihomomorphic matrix, bound on x, bound on y) )
 -- ingesting term changes matrix and sets bound to [1,Inf]
 -- ingesting bound does nothing to matrix, just updates bound
-gosper x y curM  | low == hi  = (termToBound hi):(gosper x y (produce hi curM))   -- produce another term of output 
+gosper x y curM  | low == hi  = (termToInterval hi):(gosper x y (produce hi curM))   -- produce another term of output 
                  | otherwise  = (ratRange curM):(gosper (tail_ x) (tail_ y) (ingestY (head_ y) (ingestX (head_ x) curM))) -- get next x,y
                               where (low,hi) = range curM
 
@@ -133,7 +133,7 @@ arithCF_ initM x y = takeWhile notInf (gosper (tail_ x) (tail_ y) (ingestY (head
  -}
 
 newtype CF = MakeCF_ { getCF_ :: [(Ratio Integer, Ratio Integer)] }
-makeCF terms = MakeCF_ (map termToBound terms)
+makeCF terms = MakeCF_ (map termToInterval terms)
 
 -- matrix initializations for arithmetic
 addCF_ = arithCF_  [[0,1,1,0],[0,0,0,1]]
@@ -159,12 +159,12 @@ instance Fractional CF where
 instance Eq CF where
   -- true iff abs(x-y) <= epsDefault, i.e. eqWithin epsDefault
   x == y = containedIn 0 (lohi aprxState)
-             where aprxState = approxUntil (narrowerThan epsDefault) ([], [[1,0],[0,1]], pmInf, getCF_ (x-y))    
+             where aprxState = approxUntil (narrowerThan epsDefault) (initState (x-y))    
 
 instance Ord CF where
   -- true iff y >= x - epsDefault
   x <= y = below 0 (lohi aprxState)
-             where aprxState = approxUntil (narrowerThan epsDefault) ([], [[1,0],[0,1]], pmInf, getCF_ (y-x))   
+             where aprxState = approxUntil (narrowerThan epsDefault) (initState (y-x))   
 containedIn t (lo, hi) = t >= lo && t <= hi
 below       t (lo, hi) = t <= hi
 above       t (lo, hi) = t >= lo
@@ -183,7 +183,7 @@ cfToFloatWithin eps x = fracEval (cfToTermsWithin eps x)
 cfToRat x             = ratEval $ cfToTerms x
 cfToRatWithin eps x   = ratEval $ cfToTermsWithin eps x
 eqWithin eps x y      = containedIn 0 (lohi aprxState)
-                          where aprxState = approxUntil (narrowerThan eps) ([], [[1,0],[0,1]], pmInf, getCF_ (x-y))   
+                          where aprxState = approxUntil (narrowerThan eps) (initState (x-y))   
 
 floatToCFterms x | x == floor_x   = [floor x]
                  | otherwise      = (floor x):(floatToCFterms (1/(x - floor_x)))
@@ -211,7 +211,7 @@ advApprox (terms, matrix, lastBound, unread) | n == infinity = (terms, matmult m
                                              | isTerm xi = (terms++[n], matmult matrix n, nobound, tail_ unread)
                                              | otherwise = (terms, matrix, xi, tail_ unread)
                                                 where xi = head_ unread
-                                                      n = numerator (fst xi)
+                                                      n = intervalToTerm xi
 -- approx until state satisifies predicate p                                                    
 approxUntil p curState = if p curState then curState else approxUntil p (advApprox curState) 
 -- get upper, lower bounds on value of CF
@@ -227,8 +227,9 @@ ratMult a [[pp,p],[qq,q]] = (pp*n + p*d)%(qq*n+q*d)
 -- advance state until bounds on CF are sufficiently narrow
 narrowerThan eps (t,m,b,u) = hi-lo  < eps
                         where (lo,hi) = lohi (t,m,b,u)   
+initState (MakeCF_ x) = ([], [[1,0],[0,1]], pmInf,  x)  
 approx eps (MakeCF_ x) = t ++ lastTermApprox
-                         where (t,m,b,u) = approxUntil (narrowerThan eps) ([], [[1,0],[0,1]], pmInf, x) 
+                         where (t,m,b,u) = approxUntil (narrowerThan eps) (initState (MakeCF_ x)) 
                                lastTermApprox = if b == nobound then [] else [floor (snd b)]
 
 {-
@@ -323,7 +324,7 @@ cfSqrt (MakeCF_ x) =  if (MakeCF_ x) < 1 then 1/(cfSqrt (1/(MakeCF_ x))) else Ma
 -- must output ambiguous terms to prevent stalling (see cfAlgorithm.tex)
 cfSqrtIter mat x | all (==0) (m!!1) = [] -- have reached end of computing rational result
                  | y <= 0 = []
-                 | matHasFixpoint = (termToBound y):(cfSqrtIter (produce y (ingestY (termToBound y) mat)) x) 
+                 | matHasFixpoint = (termToInterval y):(cfSqrtIter (produce y (ingestY (termToInterval y) mat)) x) 
                  | otherwise      = yBound:(cfSqrtIter (ingestX (head_ x) mat) (tail_ x)) -- output ambiguous term
                       where y   = fixpoint (fixvar m xLo)
                             yHi = fixpoint (fixvar m xHi) 
@@ -372,7 +373,7 @@ cfExp_ (MakeCF_ x) = MakeCF_ (expIter 1 x)
 -- Taylor series for g(w) = 1 + w/3 + w^2/5 + w^3/7 + ...
 -- log(x) = 2*z*g(z^2)
 logMat n = [[2*n-1,0,0,2*n+1],[0,0,0,2*n+1]] -- 1 + (2*n-1)/(2*n+1) xy
-gIter bd n w | upperBound <= 2 = (termToBound 1):(arithCF_ (prod 1 (logMat n)) w (gIter bd (n+1) w))
+gIter bd n w | upperBound <= 2 = (termToInterval 1):(arithCF_ (prod 1 (logMat n)) w (gIter bd (n+1) w))
              | otherwise = (1%1, upperBound):(arithCF_ (logMat n) w (gIter bd (n+1) w))
                 where upperBound = 1 + ((2*n-1)%(2*n+1))*bd -- lower bound is always 1%1
 
@@ -394,8 +395,8 @@ wbound w = snd (head (dropWhile tooWide bounds)) -- 'snd' is upper bound of (lo,
 piMat i = [[0, i*(2*i-1), 0, (5*i-2)*3*(3*i+1)*(3*i+2)],
            [0, 0,         0, 3*(3*i+1)*(3*i+2)]]
 piInterval i = ( (27*i-12)%5, (675*i - 216)%125  )
-piIter i | i == 1    = (termToBound 3):(arithCF_ (prod 3 (piMat i)) (piIter (i+1)) [termToBound 0])
-         | otherwise =  (piInterval i):(arithCF_ (piMat i)          (piIter (i+1)) [termToBound 0])
+piIter i | i == 1    = (termToInterval 3):(arithCF_ (prod 3 (piMat i)) (piIter (i+1)) [termToInterval 0])
+         | otherwise =  (piInterval i):(arithCF_ (piMat i)          (piIter (i+1)) [termToInterval 0])
 cfPi = MakeCF_ (piIter 1)
 
 trigMat n = [[-1,0,0,2*n*(2*n-1)],[0,0,0,2*n*(2*n-1)]] -- 1 - xy/(2n(2n-1)) 
@@ -403,14 +404,14 @@ trigMat n = [[-1,0,0,2*n*(2*n-1)],[0,0,0,2*n*(2*n-1)]] -- 1 - xy/(2n(2n-1))
 cfCos x  | (abs x) <= cfPi/2 = MakeCF_ (cfCosIter 1 (getCF_ (x^2)))
          | (abs x) <= cfPi   = -(cfCos (cfPi - x))
          | otherwise = cfCos (x - (signum x)*2*cfPi)
-cfCosIter n w | n > 1 = (termToBound 0):(termToBound 1):((4*n*(2*n-1)-5)%5, ratInfinity):( arithCF_ (prod 1 (prod 0 (trigMat n))) w (cfCosIter (n+1) w) )
+cfCosIter n w | n > 1 = (termToInterval 0):(termToInterval 1):((4*n*(2*n-1)-5)%5, ratInfinity):( arithCF_ (prod 1 (prod 0 (trigMat n))) w (cfCosIter (n+1) w) )
               | otherwise =(-1%4, 1%1 ):( arithCF_  (trigMat 1) w (cfCosIter 2 w) ) 
 
 cfSin x = cfCos (x - cfPi/2)
 cfTan x = (cfSin x)/(cfCos x)
 
 cfRoot n x = cfExp $ (cfLog x)/n
-
+cfPow  x y = cfExp $ ((cfLog x) * y)
 -- arcsin(x)/x
 asinMat n = [[(2*n-1)^2,0,0,2*n*(2*n+1)],[0,0,0,2*n*(2*n+1)]] 
 cfAsin x = x * (MakeCF_ (cfAsinIter 1 (getCF_ (x^2))))
@@ -424,9 +425,12 @@ cfAsinIter n w = (1%1, 1%1 + prodC_n):(arithCF_ (asinMat n) w (cfAsinIter (n+1) 
 -- this can cause infinite loop; should be used only when x is known to be irrational
 knownFloor (t,m,b,u) = (floor lo) == (floor hi)
                        where (lo, hi) = lohi (t,m,b,u)
-cfFloor (MakeCF_ x) = t!!0
-                         where initState =  ([], [[1,0],[0,1]], pmInf, x)  
-                               (t,m,b,u) = (approxUntil knownFloor initState)
+cfFloor x = t!!0
+               where (t,m,b,u) = (approxUntil knownFloor (initState x))
+knownCeiling (t,m,b,u) = (ceiling lo) == (ceiling hi)
+                       where (lo, hi) = lohi (t,m,b,u)
+cfCeiling x = 1 + (t!!0)
+                where (t,m,b,u) = (approxUntil knownCeiling (initState x))
 
 -- represent CF in factorial base
 fbase (MakeCF_ x) = fbase_ 1 (MakeCF_ x)
