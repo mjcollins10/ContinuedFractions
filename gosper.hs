@@ -413,13 +413,14 @@ cfTan x = (cfSin x)/(cfCos x)
 cfRoot n x = cfExp $ (cfLog x)/n
 cfPow  x y = cfExp $ ((cfLog x) * y)
 -- arcsin(x)/x
+c n = ((2*n-1)*(2*n-1))%(2*n*(2*n+1))
 asinMat n = [[(2*n-1)^2,0,0,2*n*(2*n+1)],[0,0,0,2*n*(2*n+1)]] 
 cfAsin x = x * (MakeCF_ (cfAsinIter 1 (getCF_ (x^2))))
-cfAsinIter n w = (1%1, 1%1 + prodC_n):(arithCF_ (asinMat n) w (cfAsinIter (n+1) w) ) 
-                  where prodC_n = product [ ((2*k-1)^2)%(2*k*(2*k+1)) | k <- [1..n] ]
--- add another arg for incremental computation of prodC_n
+cfAsinIter n w = (termToInterval 1):(arithCF_ asinMatProd1_n w (cfAsinIter (n+1) w) ) 
+                    where term_n = product [ c k | k <- [1..n] ] -- n^th term of series for arcsin 
+                          asinMatProd1_n = prod 1 (asinMat n)
+
 -- immediately produce 1 for sufficiently large n
--- check for off-by-1 error in prod
  
 -- approx until floor is known
 -- this can cause infinite loop; should be used only when x is known to be irrational
