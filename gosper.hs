@@ -412,16 +412,29 @@ cfTan x = (cfSin x)/(cfCos x)
 
 cfRoot n x = cfExp $ (cfLog x)/n
 cfPow  x y = cfExp $ ((cfLog x) * y)
+
 -- arcsin(x)/x
 c n = ((2*n-1)*(2*n-1))%(2*n*(2*n+1))
 asinMat n = [[(2*n-1)^2,0,0,2*n*(2*n+1)],[0,0,0,2*n*(2*n+1)]] 
-cfAsin x = x * (MakeCF_ (cfAsinIter 1 (getCF_ (x^2))))
-cfAsinIter n w = (termToInterval 1):(arithCF_ asinMatProd1_n w (cfAsinIter (n+1) w) ) 
-                    where term_n = product [ c k | k <- [1..n] ] -- n^th term of series for arcsin 
+cfAsin x = x * (MakeCF_ (cfAsinIter (asBound w) 1 w))
+              where w = getCF_ (x^2)
+cfAsinIter bndW n w | prod1 = (termToInterval 1):(arithCF_ asinMatProd1_n w (cfAsinIter bndW (n+1) w) ) 
+                    | otherwise = firstInterval:(arithCF_ (asinMat n) w (cfAsinIter bndW (n+1) w) ) 
+                    where term_n_1 = product [ c k | k <- [1..(n-1)] ] -- (n-1)^th term of series for arcsin 
                           asinMatProd1_n = prod 1 (asinMat n)
+                          firstInterval = (1%1, (4*bndW + 7*term_n_1)/(7*term_n_1))
+                          prod1 = (snd firstInterval) <= (2%1)
+-- close rational approximaton to w
+asBound w = ratEval $ approx (1%1000) (MakeCF_ w)
 
--- immediately produce 1 for sufficiently large n
- 
+cfAcos x = cfPi/2 - (cfAsin x)
+--cfAtan is similar to logarithm; x - x^3/3 + x^5/5 - ...
+
+
+{-
+ - various so-far-undocumented useful tools
+ -}
+
 -- approx until floor is known
 -- this can cause infinite loop; should be used only when x is known to be irrational
 knownFloor (t,m,b,u) = (floor lo) == (floor hi)
@@ -433,7 +446,9 @@ knownCeiling (t,m,b,u) = (ceiling lo) == (ceiling hi)
 cfCeiling x = 1 + (t!!0)
                 where (t,m,b,u) = (approxUntil knownCeiling (initState x))
 
--- represent CF in factorial base
+-- represent CF in factorial base:
+-- x = c_1 + c_2/2! + c_3/3! + ..., each c_k an integer < k
+-- (except c_1 is floor of x)
 fbase (MakeCF_ x) = fbase_ 1 (MakeCF_ x)
 fbase_ n x = c:(fbase_ (n+1) (nx - (makeCF [c])))
            where nx = n*x
